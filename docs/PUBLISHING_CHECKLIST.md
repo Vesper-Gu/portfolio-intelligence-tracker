@@ -24,7 +24,6 @@ Use this checklist before pushing to GitHub.
 
 ## Repository
 
-- Prefer private GitHub repo by default.
+- A public repository is acceptable only after the checks above confirm it contains code, placeholder configuration and synthetic fixtures only.
 - Enable secret scanning and Dependabot.
 - Add branch protection before inviting collaborators.
-

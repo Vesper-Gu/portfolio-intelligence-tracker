@@ -1,0 +1,26 @@
+{
+  "name": "portfolio-intelligence-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "predev": "npm run build --workspace @pit/shared",
+    "dev": "concurrently -n api,web -c yellow,cyan \"npm run dev --workspace @pit/api\" \"npm run dev --workspace @pit/web\"",
+    "dev:api": "npm run dev --workspace @pit/api",
+    "dev:web": "npm run dev --workspace @pit/web",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "pretypecheck": "npm run build --workspace @pit/shared",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

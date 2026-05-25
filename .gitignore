@@ -2,12 +2,20 @@
 node_modules/
 .next/
 dist/
+packages/*/dist/
+apps/*/dist/
 coverage/
+*.tsbuildinfo
+*.swp
 .env
 .env.*
 !.env.example
+output/
+tmp/
+# Local verification journals can contain private uploaded-record identifiers.
+docs/PROJECT_CONTEXT.md
+docs/PROJECT_STATUS.md
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-
