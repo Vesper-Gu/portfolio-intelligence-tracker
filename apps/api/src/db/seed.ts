@@ -36,6 +36,10 @@ await db
     target: ingestItemsTable.id,
     set: {
       source: ingestItemsTable.source,
+      sourceName: ingestItemsTable.sourceName,
+      sourceType: ingestItemsTable.sourceType,
+      publishedAt: ingestItemsTable.publishedAt,
+      reportingPeriod: ingestItemsTable.reportingPeriod,
       kind: ingestItemsTable.kind,
       ticker: ingestItemsTable.ticker,
       confidence: ingestItemsTable.confidence,

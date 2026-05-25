@@ -13,14 +13,14 @@ test("GET /health returns service status", async () => {
   });
 });
 
-test("GET /dashboard returns phase 1 mock payload", async () => {
+test("GET /dashboard does not present synthetic holdings analysis before records are accepted", async () => {
   const app = buildApp();
   const response = await app.inject({ method: "GET", url: "/dashboard" });
   const body = response.json();
 
   assert.equal(response.statusCode, 200);
-  assert.equal(body.holdingSignals[0].ticker, "NVDA");
-  assert.equal(body.ingestItems, undefined);
+  assert.deepEqual(body.heatmapColumns, []);
+  assert.deepEqual(body.heatmapRows, []);
   assert.equal(body.qualitySummary.pendingReview, 3);
 });
 
@@ -188,6 +188,10 @@ test("POST /ingest-items creates a new pending review item", async () => {
     url: "/ingest-items",
     payload: {
       source: "https://example.com/portfolio-note",
+      sourceName: "Sample Growth Fund",
+      sourceType: "fund_filing",
+      publishedAt: "2026-05-15",
+      reportingPeriod: "2026 Q1",
       kind: "link",
       rawText: "https://example.com/portfolio-note",
       ticker: "UNKNOWN"
@@ -199,6 +203,9 @@ test("POST /ingest-items creates a new pending review item", async () => {
   assert.equal(body.id, "ING-2000");
   assert.equal(body.kind, "link");
   assert.equal(body.status, "待复核");
+  assert.equal(body.sourceName, "Sample Growth Fund");
+  assert.equal(body.sourceType, "fund_filing");
+  assert.equal(body.reportingPeriod, "2026 Q1");
 
   const listResponse = await app.inject({ method: "GET", url: "/ingest-items" });
   assert.equal(listResponse.json()[0].id, "ING-2000");
@@ -294,6 +301,9 @@ test("POST /ingest-items/:id/accept marks an item accepted", async () => {
   assert.equal(holdings[0].id, "HLD-ING-1024");
   assert.equal(holdings[0].ticker, "NVDA");
   assert.equal(holdings[0].lastAction, "加仓");
+  assert.equal(holdings[0].sourceName, "@Investor_X");
+  assert.equal(holdings[0].sourceType, "kol_post");
+  assert.equal(holdings[0].publishedAt, "2026-05-12");
 
   const eventsResponse = await app.inject({ method: "GET", url: "/holding-events" });
   const events = eventsResponse.json();
@@ -380,8 +390,22 @@ test("GET /portfolio/positions aggregates active accepted holdings by ticker", a
   assert.equal(body[0].holdingsCount, 1);
   assert.equal(body[0].sourceCount, 1);
   assert.equal(body[0].avgConfidence, "0.82");
+  assert.deepEqual(body[0].sources, ["@Investor_X"]);
   assert.equal(body[1].ticker, "SMH");
   assert.equal(body[1].netStance, "中性");
+
+  const dashboardResponse = await app.inject({ method: "GET", url: "/dashboard" });
+  const dashboard = dashboardResponse.json();
+  const kolRow = dashboard.heatmapRows.find((row: { label: string }) => row.label === "@Investor_X");
+  const filingRow = dashboard.heatmapRows.find((row: { label: string }) => row.label === "Sample Fund 13F");
+
+  assert.equal(dashboardResponse.statusCode, 200);
+  assert.ok(dashboard.heatmapColumns.includes("NVDA"));
+  assert.ok(dashboard.heatmapColumns.includes("SMH"));
+  assert.ok(kolRow);
+  assert.ok(filingRow);
+  assert.equal(kolRow.cells[dashboard.heatmapColumns.indexOf("NVDA")], "positive");
+  assert.equal(filingRow.cells[dashboard.heatmapColumns.indexOf("SMH")], "warning");
 });
 
 test("POST /rag/query answers with citations from accepted data", async () => {
@@ -468,6 +492,44 @@ test("POST /rag/query can use an injected LLM answer generator", async () => {
 
   assert.equal(response.statusCode, 200);
   assert.match(response.json().answer, /^LLM ANSWER: evidence/);
+});
+
+test("POST /rag/query does not send storage object paths to the answer layer", async () => {
+  const app = buildApp({
+    ragAnswerGenerator: {
+      async generate(input) {
+        return input.contextSummary;
+      }
+    }
+  });
+  await app.inject({
+    method: "POST",
+    url: "/ingest-items",
+    payload: {
+      source: "storage://private-bucket/user-1/research-shot.png",
+      kind: "text",
+      rawText: "Image uploaded: research-shot.png (image/png, 69253 bytes)\nStorage object: storage://private-bucket/user-1/research-shot.png\nReviewer note: accepted model candidate",
+      ticker: "NET"
+    }
+  });
+  await app.inject({ method: "POST", url: "/ingest-items/ING-2000/extract" });
+  await app.inject({
+    method: "POST",
+    url: "/ingest-items/ING-2000/accept",
+    payload: { reviewer: "local-user" }
+  });
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/rag/query",
+    payload: { query: "NET 的来源截图是什么？" }
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.match(response.json().answer, /截图上传/);
+  assert.doesNotMatch(response.json().answer, /storage:\/\//);
+  assert.doesNotMatch(response.json().answer, /private-bucket/);
+  assert.doesNotMatch(response.json().answer, /Image uploaded|Storage object|Reviewer note|69253 bytes/);
 });
 
 test("POST /rag/query falls back when LLM answer generation fails", async () => {

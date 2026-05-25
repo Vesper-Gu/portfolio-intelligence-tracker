@@ -5,6 +5,7 @@ import {
   dashboardPayload,
   extractionProviderSchema,
   qualitySummary,
+  researchSourceTypeSchema,
   signalActionSchema,
   type CreateExtractionCandidateRequest,
   type ExtractionCandidate,
@@ -37,7 +38,7 @@ import {
 } from "../db/schema.js";
 import { createDatabase } from "../db/connection.js";
 import type { PortfolioRepository } from "./portfolioRepository.js";
-import { buildPortfolioPositions } from "../portfolio/positions.js";
+import { buildEvidenceDashboard, buildPortfolioPositions } from "../portfolio/positions.js";
 
 export interface DatabaseRepositoryOptions {
   databaseUrl: string;
@@ -52,8 +53,8 @@ export function createDatabaseRepository(options: DatabaseRepositoryOptions): Po
 export class DatabasePortfolioRepository implements PortfolioRepository {
   constructor(private readonly db: PostgresJsDatabase) {}
 
-  getDashboard(_userId: string) {
-    return dashboardPayload;
+  async getDashboard(userId: string) {
+    return buildEvidenceDashboard(dashboardPayload, await this.getHoldings(userId));
   }
 
   async getIngestItems(userId: string) {
@@ -199,6 +200,10 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
     const item: IngestItem = {
       id: `ING-${Date.now()}`,
       source: request.source,
+      sourceName: request.sourceName,
+      sourceType: request.sourceType,
+      publishedAt: request.publishedAt,
+      reportingPeriod: request.reportingPeriod,
       kind: request.kind,
       ticker: request.ticker ?? "UNKNOWN",
       confidence: request.confidence ?? "0.00",
@@ -336,6 +341,10 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
         .set({
           ticker: item.ticker,
           source: item.source,
+          sourceName: item.sourceName,
+          sourceType: item.sourceType,
+          publishedAt: item.publishedAt,
+          reportingPeriod: item.reportingPeriod,
           sourceIngestItemId: item.id,
           lastAction: action,
           confidence,
@@ -349,6 +358,10 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
         userId,
         ticker: item.ticker,
         source: item.source,
+        sourceName: item.sourceName,
+        sourceType: item.sourceType,
+        publishedAt: item.publishedAt,
+        reportingPeriod: item.reportingPeriod,
         sourceIngestItemId: item.id,
         lastAction: action,
         confidence,
@@ -394,6 +407,10 @@ function mapIngestItemRow(row: IngestItemRow): IngestItem {
   return {
     id: row.id,
     source: row.source,
+    sourceName: row.sourceName ?? undefined,
+    sourceType: row.sourceType ? researchSourceTypeSchema.parse(row.sourceType) : undefined,
+    publishedAt: row.publishedAt ?? undefined,
+    reportingPeriod: row.reportingPeriod ?? undefined,
     kind: row.kind,
     ticker: row.ticker,
     confidence: row.confidence,
@@ -445,6 +462,10 @@ function mapHoldingRecordRow(row: HoldingRecordRow): HoldingRecord {
     id: row.id,
     ticker: row.ticker,
     source: row.source,
+    sourceName: row.sourceName ?? undefined,
+    sourceType: row.sourceType ? researchSourceTypeSchema.parse(row.sourceType) : undefined,
+    publishedAt: row.publishedAt ?? undefined,
+    reportingPeriod: row.reportingPeriod ?? undefined,
     sourceIngestItemId: row.sourceIngestItemId,
     lastAction: signalActionSchema.parse(row.lastAction),
     confidence: row.confidence,

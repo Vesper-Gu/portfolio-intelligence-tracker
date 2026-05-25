@@ -28,6 +28,7 @@ export type {
   AccountExport,
   OpsStatus,
   RagQueryResponse,
+  ResearchSourceType,
   SignalAction,
   SourceItem,
   TickerMove,

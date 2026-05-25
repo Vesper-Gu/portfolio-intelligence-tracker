@@ -16,7 +16,7 @@ import type {
   RejectIngestItemRequest,
   UpdateIngestItemRequest
 } from "@pit/shared";
-import { buildPortfolioPositions } from "../portfolio/positions.js";
+import { buildEvidenceDashboard, buildPortfolioPositions } from "../portfolio/positions.js";
 import type { PortfolioRepository } from "./portfolioRepository.js";
 
 interface MockUserState {
@@ -66,8 +66,8 @@ export function createMockRepository(): PortfolioRepository {
   }
 
   return {
-    getDashboard(_userId) {
-      return dashboardPayload;
+    getDashboard(userId) {
+      return buildEvidenceDashboard(dashboardPayload, stateFor(userId).holdings);
     },
     getIngestItems(userId) {
       return stateFor(userId).ingestItems;
@@ -139,6 +139,10 @@ export function createMockRepository(): PortfolioRepository {
       const item: IngestItem = {
         id: `ING-${state.nextIngestId++}`,
         source: request.source,
+        sourceName: request.sourceName,
+        sourceType: request.sourceType,
+        publishedAt: request.publishedAt,
+        reportingPeriod: request.reportingPeriod,
         kind: request.kind,
         ticker: request.ticker ?? "UNKNOWN",
         confidence: request.confidence ?? "0.00",
@@ -243,6 +247,10 @@ function createAcceptedHolding(state: MockUserState, item: IngestItem) {
     id: `HLD-${item.id}`,
     ticker: item.ticker,
     source: item.source,
+    sourceName: item.sourceName,
+    sourceType: item.sourceType,
+    publishedAt: item.publishedAt,
+    reportingPeriod: item.reportingPeriod,
     sourceIngestItemId: item.id,
     lastAction: action,
     confidence,

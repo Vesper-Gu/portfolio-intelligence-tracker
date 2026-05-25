@@ -1,4 +1,4 @@
-import type { HoldingEvent, HoldingRecord, PortfolioPosition, SignalAction } from "@pit/shared";
+import type { DashboardPayload, HeatmapRow, HoldingEvent, HoldingRecord, PortfolioPosition, SignalAction, Tone } from "@pit/shared";
 
 const actionScore: Record<SignalAction, number> = {
   "加仓": 1,
@@ -7,6 +7,15 @@ const actionScore: Record<SignalAction, number> = {
   "观察": 0,
   "减仓": -1,
   "风险": -1
+};
+
+const actionHeatTone: Record<SignalAction, Tone> = {
+  "加仓": "positive",
+  "新建仓": "positive",
+  "持有": "warning",
+  "观察": "warning",
+  "减仓": "negative",
+  "风险": "negative"
 };
 
 export function buildPortfolioPositions(
@@ -46,7 +55,7 @@ export function buildPortfolioPositions(
       const avgConfidence = confidences.length
         ? confidences.reduce((total, confidence) => total + confidence, 0) / confidences.length
         : 0;
-      const sources = [...new Set(tickerHoldings.map((holding) => holding.source))].sort();
+      const sources = [...new Set(tickerHoldings.map(sourceLabel))].sort();
       const lastUpdated = [
         ...tickerHoldings.map((holding) => holding.updatedAt),
         ...tickerEvents.map((event) => event.createdAt)
@@ -73,4 +82,46 @@ export function buildPortfolioPositions(
       if (b.netScore !== a.netScore) return b.netScore - a.netScore;
       return b.lastUpdated.localeCompare(a.lastUpdated);
     });
+}
+
+export function buildEvidenceDashboard(base: DashboardPayload, holdings: HoldingRecord[]): DashboardPayload {
+  const activeHoldings = holdings
+    .filter((holding) => holding.status === "已确认")
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const heatmapColumns = [...new Set(activeHoldings.map((holding) => holding.ticker.toUpperCase()))].slice(0, 8);
+  const sourceLabels = [...new Set(activeHoldings.map(sourceLabel))].slice(0, 8);
+  const latestBySourceTicker = new Map<string, HoldingRecord>();
+
+  for (const holding of activeHoldings) {
+    const key = `${sourceLabel(holding)}::${holding.ticker.toUpperCase()}`;
+    if (!latestBySourceTicker.has(key)) latestBySourceTicker.set(key, holding);
+  }
+
+  const heatmapRows: HeatmapRow[] = sourceLabels.map((label) => ({
+    label,
+    cells: heatmapColumns.map((ticker) => {
+      const holding = latestBySourceTicker.get(`${label}::${ticker}`);
+      return holding ? actionHeatTone[holding.lastAction] : "empty";
+    })
+  }));
+
+  return {
+    ...base,
+    tickerMoves: [],
+    holdingSignals: [],
+    evidenceItems: [],
+    heatmapColumns,
+    heatmapRows
+  };
+}
+
+function sourceLabel(holding: HoldingRecord) {
+  if (holding.sourceName) return holding.sourceName;
+  if (holding.source.startsWith("storage://")) return "截图上传";
+
+  try {
+    return new URL(holding.source).hostname;
+  } catch {
+    return holding.source;
+  }
 }

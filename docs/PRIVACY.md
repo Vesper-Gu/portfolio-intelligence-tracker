@@ -19,6 +19,7 @@
 - 启用 DeepSeek 文本解析时，相关文本会发送给配置的 DeepSeek-compatible API。
 - 启用 Kimi Vision 时，截图内容会发送给配置的 Moonshot/Kimi-compatible API。
 - 启用 RAG LLM 时，系统只发送检索命中的资料库上下文和问题，不发送完整数据库。
+- Storage object path、上传字节数和 reviewer note 等运维元数据只用于后端处理，不作为问答或解析提示词内容发送给模型服务商。
 
 ## 不会做什么
 

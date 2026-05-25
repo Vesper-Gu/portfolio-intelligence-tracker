@@ -4,7 +4,7 @@
 
 当前实现是 React + Fastify + TypeScript monorepo，以 `apps/web`、`apps/api` 和 `packages/shared` 为主路径。早期 Node.js 原生 HTTP 原型已归档到 `legacy/initial-backend-prototype`，仅供回看设计演进。
 
-现行实现覆盖 Drizzle migrations、Supabase Storage 私有图片上传与短期预览、AI extraction 候选记录、人工确认后的 holdings、ticker 聚合资料库、可追溯 `RAG + LLM` 对话、认证/数据隔离、导出删除和成本限制。默认开发模式继续使用合成 mock 数据；连接外部服务前必须自行配置私有环境变量并验证访问控制。
+现行实现覆盖 Drizzle migrations、Supabase Storage 私有图片上传与短期预览、AI extraction 候选记录、人工确认后的 holdings、来源主体/类型/资料日期/报告期元数据、ticker 聚合资料库、基于已确认数据的来源倾向矩阵、可追溯 `RAG + LLM` 对话、认证/数据隔离、导出删除和成本限制。默认开发模式继续使用合成 mock 数据；连接外部服务前必须自行配置私有环境变量并验证访问控制。
 
 ## 技术栈
 
@@ -96,12 +96,12 @@ HTTP router
 
 - `kols`：被追踪的人或账号。
 - `sources`：信息源渠道元数据，例如 Twitter、Substack、13F、terminal、article、manual、app。
-- `holdings`：正式结构化持仓记录。
+- `holdings`：正式结构化持仓记录，保留来源主体、来源类型、资料日期与报告期，使跨 KOL / 基金 / 研究材料的倾向聚合可计算且可追溯。
 - `holding_events`：人工接受后生成的正式持仓事件记录。
 - `holding_snapshots`：某个 KOL 在某个时间点的完整持仓快照。
 - `snapshot_holdings`：snapshot 和 holdings 的关联表。
 - `holding_events`：自动生成的新开仓、加仓、减仓、清仓等事件。
-- `ingest_items`：尚未确认的解析候选记录。
+- `ingest_items`：尚未确认的解析候选记录；录入时同时记录来源主体、类型、资料日期与可选报告期。
 - `extraction_candidates`：每次 extraction 的候选结果历史，不直接代表正式事实。
 - `alert_rules`：后续提醒规则定义。
 - `quality_events`：解析和人工验证相关的质量记录。
@@ -146,7 +146,7 @@ DATABASE_URL=postgres://...
 
 ## Migration 与 Seed
 
-版本化 migration 位于 `apps/api/drizzle/`，包含资料持久化、候选历史、正式记录与多用户隔离/RLS。
+版本化 migration 位于 `apps/api/drizzle/`，包含资料持久化、候选历史、正式记录、多用户隔离/RLS，以及 `0009_source_observation_metadata.sql` 中的研究来源元数据字段。
 
 数据库脚本：
 

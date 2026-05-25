@@ -136,6 +136,10 @@ input {
   font-size: 10px;
 }
 
+.ticker-item.empty-strip {
+  grid-column: 1 / -1;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: 184px minmax(996px, 1fr);
@@ -453,6 +457,13 @@ h1 {
 
 .heatmap-label.column {
   align-self: end;
+}
+
+.heatmap-label.row {
+  overflow: hidden;
+  padding-right: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .heat-cell {
@@ -997,6 +1008,12 @@ h1 {
   padding: 12px;
 }
 
+.source-metadata-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 .segmented-control {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1430,6 +1447,10 @@ h1 {
   color: var(--muted) !important;
 }
 
+.tone-empty {
+  color: var(--muted) !important;
+}
+
 .heat-cell.tone-positive {
   background: var(--green);
 }
@@ -1443,5 +1464,9 @@ h1 {
 }
 
 .heat-cell.tone-neutral {
+  background: var(--orange);
+}
+
+.heat-cell.tone-empty {
   background: #151a1d;
 }

@@ -302,7 +302,7 @@ function buildPositionSummaryAnswer(scoped: ReturnType<typeof scopeData>, citati
 
 function buildEvidenceAnswer(scoped: ReturnType<typeof scopeData>, citations: RagCitation[]) {
   const evidenceLines = [
-    ...scoped.ingestItems.slice(0, 4).map((item) => `来源 ${item.id}：${summarize(item.rawText)}`),
+    ...scoped.ingestItems.slice(0, 4).map((item) => `来源 ${item.id}：${summarize(textForAnswerLayer(item.rawText))}`),
     ...scoped.events.slice(0, 3).map((event) => `确认事件 ${event.id}：${event.summary}`)
   ];
   const citationLine = citations.length
@@ -319,7 +319,7 @@ function buildRiskAnswer(scoped: ReturnType<typeof scopeData>, citations: RagCit
   const riskyItems = scoped.ingestItems.filter((item) => /(风险|减仓|SELL|SOLD|REDUCE|TRIM|RISK|CONFLICT|冲突)/i.test(item.rawText));
   const lines = [
     ...riskyEvents.map((event) => `${event.ticker} 有 ${event.action} 事件：${event.summary}`),
-    ...riskyItems.map((item) => `${item.ticker} 来源记录需要复核：${summarize(item.rawText)}`)
+    ...riskyItems.map((item) => `${item.ticker} 来源记录需要复核：${summarize(textForAnswerLayer(item.rawText))}`)
   ];
 
   if (!lines.length) {
@@ -358,7 +358,7 @@ function buildSourceTraceAnswer(scoped: ReturnType<typeof scopeData>) {
       ? `最近候选为 ${candidates[0].ticker} / ${candidates[0].action}（${candidates[0].provider}）。`
       : "暂无候选历史。";
 
-    return `${item.id} 来自 ${item.source}，类型 ${item.kind}，状态 ${item.status}。${latestCandidate}`;
+    return `${item.id} 来自 ${displaySource(item.source, item.sourceName)}，类型 ${item.sourceType ?? item.kind}，状态 ${item.status}。${latestCandidate}`;
   });
 
   return lines.length
@@ -382,7 +382,7 @@ function buildContextSummary(scoped: ReturnType<typeof scopeData>) {
     `- ${position.ticker}: 聚合方向=${position.netStance}; 最新动作=${position.latestAction}; 来源数=${position.sourceCount}; 确认事件数=${position.eventCount}; 更新时间=${formatDate(position.lastUpdated)}`
   ));
   const holdings = scoped.holdings.slice(0, 8).map((holding) => (
-    `- ${holding.ticker}: 动作=${holding.lastAction}; 状态=${holding.status}; 来源=${holding.source}; 来源记录=${holding.sourceIngestItemId}; 更新时间=${formatDate(holding.updatedAt)}`
+    `- ${holding.ticker}: 动作=${holding.lastAction}; 状态=${holding.status}; 来源=${displaySource(holding.source, holding.sourceName)}; 来源类型=${holding.sourceType ?? ""}; 报告期=${holding.reportingPeriod ?? ""}; 来源记录=${holding.sourceIngestItemId}; 更新时间=${formatDate(holding.updatedAt)}`
   ));
   const events = scoped.events
     .slice()
@@ -392,7 +392,7 @@ function buildContextSummary(scoped: ReturnType<typeof scopeData>) {
       `- ${event.ticker}: ${event.action}; 时间=${formatDate(event.createdAt)}; 摘要=${event.summary}; 来源记录=${event.ingestItemId}`
     ));
   const ingestItems = scoped.ingestItems.slice(0, 8).map((item) => (
-    `- ${item.id}: ticker=${item.ticker}; 类型=${item.kind}; 状态=${item.status}; 来源=${item.source}; 原文摘要=${summarize(item.rawText)}`
+    `- ${item.id}: ticker=${item.ticker}; 类型=${item.sourceType ?? item.kind}; 状态=${item.status}; 来源=${displaySource(item.source, item.sourceName)}; 资料日期=${item.publishedAt ?? ""}; 报告期=${item.reportingPeriod ?? ""}; 原文摘要=${summarize(textForAnswerLayer(item.rawText))}`
   ));
 
   return [
@@ -477,7 +477,10 @@ function holdingToDocument(holding: HoldingRecord): RagDocument {
       `ticker=${holding.ticker}`,
       `action=${holding.lastAction}`,
       `status=${holding.status}`,
-      `source=${holding.source}`,
+      `source=${displaySource(holding.source, holding.sourceName)}`,
+      `sourceType=${holding.sourceType ?? ""}`,
+      `publishedAt=${holding.publishedAt ?? ""}`,
+      `reportingPeriod=${holding.reportingPeriod ?? ""}`,
       `sourceIngestItemId=${holding.sourceIngestItemId}`
     ].join("\n")
   };
@@ -507,11 +510,14 @@ function ingestItemToDocument(item: IngestItem): RagDocument {
     sourceIngestItemId: item.id,
     title: `Source ${item.ticker} ${item.id}`,
     text: [
-      `source=${item.source}`,
+      `source=${displaySource(item.source, item.sourceName)}`,
+      `sourceType=${item.sourceType ?? ""}`,
+      `publishedAt=${item.publishedAt ?? ""}`,
+      `reportingPeriod=${item.reportingPeriod ?? ""}`,
       `kind=${item.kind}`,
       `status=${item.status}`,
       `ticker=${item.ticker}`,
-      `rawText=${item.rawText}`,
+      `rawText=${textForAnswerLayer(item.rawText)}`,
       `extractionSummary=${item.extractionSummary ?? ""}`
     ].join("\n")
   };
@@ -533,6 +539,20 @@ function candidateToDocument(candidate: ExtractionCandidate): RagDocument {
       `summary=${candidate.summary}`
     ].join("\n")
   };
+}
+
+function displaySource(source: string, sourceName?: string) {
+  if (sourceName) return sourceName;
+  if (source.startsWith("storage://")) return "截图上传";
+  return source;
+}
+
+function textForAnswerLayer(text: string) {
+  return text
+    .replace(/Image uploaded:[^\n]*/gi, "截图资料")
+    .replace(/storage:\/\/\S+/gi, "截图上传")
+    .replace(/\n?Storage object:\s*\S+/gi, "")
+    .replace(/\n?Reviewer note:[^\n]*/gi, "");
 }
 
 function summarize(text: string) {

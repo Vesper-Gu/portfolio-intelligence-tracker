@@ -1,6 +1,6 @@
 # UI 设计规范
 
-最后更新：2026-05-22
+最后更新：2026-05-25
 
 ## 设计方向
 
@@ -26,7 +26,7 @@ Phase 1 页面优先级：
 4. 问资料库。
 5. 设置 / 隐私与运维。
 
-RAG 问答在 Phase 1 已接入最小闭环，当前以结构化 holdings、portfolio positions、holding events、source ingest raw text 和 extraction candidates 为证据源，生成确定性中文答案。
+RAG 问答在 Phase 1 已接入最小闭环，当前以结构化 holdings、portfolio positions、holding events、source ingest raw text 和 extraction candidates 为证据源，在资料库边界内调用 LLM 生成回答。
 
 ## 全局布局
 
@@ -56,16 +56,7 @@ Phase 1 行为：
 
 ### Ticker Strip
 
-用于展示市场环境和常看标的：
-
-- SPX
-- NDX
-- NVDA
-- TSLA
-- BTC
-- ETH
-- VIX
-- DXY
+用于展示已确认资料形成的标的聚合方向；没有已确认资料时只展示空状态，不展示虚构行情或预设 ticker。
 
 颜色语义：
 
@@ -85,7 +76,7 @@ Phase 1 行为：
 - 当前关注标的 / Portfolio Positions。
 - 最近变化 / Recent Events。
 - 待处理资料 / Review Queue。
-- KOL × Ticker 热力图，作为辅助观察模块。
+- 来源 × Ticker 倾向矩阵，作为跨来源观察模块。
 - 快速提问 / Ask Library。
 
 不放在总览页：
@@ -135,6 +126,7 @@ Phase 1 mock 行为：
 当前真实前端行为：
 
 - 支持链接、文本和图片上传。
+- 录入时记录来源主体、来源类型、资料日期和可选报告期，以支撑跨来源聚合。
 - 支持 AI 解析、候选历史、一键应用候选、人工修改、加入资料库和驳回。
 - Ticker、Action、Summary 可在界面修改。
 - Confidence 保留为内部兼容字段，不作为用户可见输入项或展示项。

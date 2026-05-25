@@ -26,6 +26,7 @@
 
 - 测试和 demo 使用合成数据。
 - 原始截图功能实现后，只能存入私有 storage bucket。
+- Storage object path 不得进入用户可见聚合结果或第三方模型提示词；模型层仅接收必要的证据内容和脱敏来源标签。
 - 保留 source text 以支持追溯，但避免保存不必要的个人或私密信息。
 - failed extraction 示例默认保持私有，公开前必须脱敏。
 - 产品层隐私说明见 `docs/PRIVACY.md`。

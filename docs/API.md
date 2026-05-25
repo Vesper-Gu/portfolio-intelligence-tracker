@@ -6,7 +6,7 @@
 
 当前正式后端入口为 `apps/api`，使用 Fastify + TypeScript。旧 `legacy/initial-backend-prototype/docs/API.md` 仅保留为参考，不再作为后续实现依据。
 
-Phase 1 API 先使用 `packages/shared` 中的 mock 数据和 Zod schema。当前已具备 Drizzle migration、seed、database repository、Supabase Storage 图片上传、图片 signed URL 预览、AI extraction 最小闭环、DeepSeek 文本解析、多版本候选记录、人工接受后正式 holdings 写入、portfolio positions 聚合、RAG 问答最小闭环、前端 accepted holdings 展示和 source trace，并已在 Supabase dev 环境验证 `sources`、`ingest_items`、图片 object key、短期预览链接、候选字段写回、候选历史查询、`holdings`、`holding_events` 与 `/rag/query` 读取；默认仍使用 `DATA_REPOSITORY=mock`，设置 `DATA_REPOSITORY=database` 和 `DATABASE_URL` 后才连接 PostgreSQL。
+Phase 1 API 先使用 `packages/shared` 中的 mock 数据和 Zod schema。当前已具备 Drizzle migration、seed、database repository、Supabase Storage 图片上传、图片 signed URL 预览、AI extraction 最小闭环、DeepSeek 文本解析、多版本候选记录、人工接受后正式 holdings 写入、来源主体/类型/日期/报告期结构化记录、portfolio positions 聚合、基于已确认资料的来源 x 标的倾向矩阵、RAG 问答最小闭环、前端 source trace，并已在 Supabase dev 环境验证主要写入与读取路径；默认仍使用 `DATA_REPOSITORY=mock`，设置 `DATA_REPOSITORY=database` 和 `DATABASE_URL` 后才连接 PostgreSQL。
 
 ## 本地运行
 
@@ -105,7 +105,7 @@ LOG_LEVEL=info
 
 ### `GET /dashboard`
 
-用途：总览工作台首屏数据。当前前端总览页已接入该接口；接口失败时前端回落到本地 mock。
+用途：总览工作台首屏数据。当前前端总览页已接入该接口；分析区域不再回落展示合成持仓结果。
 
 响应结构：
 
@@ -117,6 +117,8 @@ LOG_LEVEL=info
 - `qualitySummary`
 
 该响应由 `dashboardPayloadSchema` 校验。
+
+`heatmapColumns` 与 `heatmapRows` 只依据当前用户状态为 `已确认` 的 holdings 计算；没有已确认资料时为空数组。矩阵行以 `sourceName` 为优先显示名称，列为 ticker，单元格颜色对应最近确认动作。
 
 ### `GET /signals`
 
@@ -143,6 +145,10 @@ LOG_LEVEL=info
 - `id`
 - `ticker`
 - `source`
+- `sourceName`：研究主体，例如 KOL 名称或基金名称。
+- `sourceType`：`kol_post`、`fund_filing`、`research_article`、`personal_note`、`screenshot` 或 `other`。
+- `publishedAt`：原始资料日期，可选。
+- `reportingPeriod`：13F 等披露资料的报告期，可选。
 - `sourceIngestItemId`
 - `lastAction`
 - `confidence`
@@ -220,7 +226,7 @@ LOG_LEVEL=info
     "bullishEvents": 0,
     "bearishEvents": 0,
     "neutralEvents": 1,
-    "sources": ["storage://ingest-uploads/..."],
+    "sources": ["截图上传"],
     "lastUpdated": "2026-05-21T10:12:40.110Z"
   }
 ]
@@ -243,6 +249,8 @@ LOG_LEVEL=info
 - `fileName`
 - `mimeType`
 - `fileSize`
+
+`source` 与 `storageObjectKey` 属于服务端追溯字段；普通用户界面、聚合来源显示以及发送给 LLM / Vision 的文本上下文不会展示或包含内部 Storage object path、上传字节数或 reviewer note 等运维元数据。
 
 ### `GET /ingest-items/:id`
 

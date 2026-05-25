@@ -222,9 +222,9 @@ function buildPrompt(item: IngestItem) {
     "请从下面录入内容中抽取一个投资持仓候选结果。",
     "输出 JSON schema: {\"ticker\":\"string\",\"action\":\"加仓|持有|减仓|新建仓|风险|观察\",\"confidence\":\"0.00-1.00\",\"summary\":\"中文一句话\"}",
     "如果无法确定 ticker，ticker 使用 UNKNOWN；如果无法确定 action，action 使用 观察。",
-    `source: ${item.source}`,
+    `source: ${promptSource(item.source)}`,
     `kind: ${item.kind}`,
-    `rawText: ${item.rawText}`
+    `rawText: ${promptText(item.rawText)}`
   ].join("\n");
 }
 
@@ -234,10 +234,22 @@ function buildVisionPrompt(item: IngestItem) {
     "输出 JSON schema: {\"ticker\":\"string\",\"action\":\"加仓|持有|减仓|新建仓|风险|观察\",\"confidence\":\"0.00-1.00\",\"summary\":\"中文一句话\"}",
     "如果图片里没有明确股票代码，ticker 使用 UNKNOWN；如果无法确定操作，action 使用 观察。",
     "summary 需要说明你在图片里看到了什么证据，不要编造图片外信息。",
-    `source: ${item.source}`,
+    `source: ${promptSource(item.source)}`,
     `fileName: ${item.fileName ?? "unknown"}`,
-    `rawText: ${item.rawText}`
+    `rawText: ${promptText(item.rawText)}`
   ].join("\n");
+}
+
+function promptSource(source: string) {
+  return source.startsWith("storage://") ? "截图上传" : source;
+}
+
+function promptText(text: string) {
+  return text
+    .replace(/Image uploaded:[^\n]*/gi, "截图资料")
+    .replace(/storage:\/\/\S+/gi, "截图上传")
+    .replace(/\n?Storage object:\s*\S+/gi, "")
+    .replace(/\n?Reviewer note:[^\n]*/gi, "");
 }
 
 function normalizeDeepSeekCandidate(content: string): ExtractionCandidate {

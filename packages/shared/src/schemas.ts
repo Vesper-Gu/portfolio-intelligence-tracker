@@ -1,10 +1,11 @@
 import { z } from "zod";
 
-export const toneSchema = z.enum(["positive", "negative", "warning", "neutral"]);
+export const toneSchema = z.enum(["positive", "negative", "warning", "neutral", "empty"]);
 export const signalActionSchema = z.enum(["加仓", "持有", "减仓", "新建仓", "风险", "观察"]);
 export const viewKeySchema = z.enum(["dashboard", "ingest", "library", "rag", "settings", "sources"]);
 export const ingestStatusSchema = z.enum(["可接受", "需人工确认", "待复核", "已接受", "已驳回", "已修改"]);
 export const ingestKindSchema = z.enum(["link", "text", "screenshot", "filing"]);
+export const researchSourceTypeSchema = z.enum(["kol_post", "fund_filing", "research_article", "personal_note", "screenshot", "other"]);
 export const extractionProviderSchema = z.enum(["rule_v1", "deepseek_text", "ocr_stub", "vision_llm"]);
 export const extractionStatusSchema = z.enum(["success", "fallback", "error"]);
 
@@ -41,6 +42,10 @@ export const heatmapRowSchema = z.object({
 export const ingestItemSchema = z.object({
   id: z.string(),
   source: z.string(),
+  sourceName: z.string().optional(),
+  sourceType: researchSourceTypeSchema.optional(),
+  publishedAt: z.string().optional(),
+  reportingPeriod: z.string().optional(),
   kind: ingestKindSchema,
   ticker: z.string(),
   confidence: z.string(),
@@ -76,6 +81,10 @@ export const holdingRecordSchema = z.object({
   id: z.string(),
   ticker: z.string(),
   source: z.string(),
+  sourceName: z.string().optional(),
+  sourceType: researchSourceTypeSchema.optional(),
+  publishedAt: z.string().optional(),
+  reportingPeriod: z.string().optional(),
   sourceIngestItemId: z.string(),
   lastAction: signalActionSchema,
   confidence: z.string(),
@@ -119,6 +128,10 @@ export const createExtractionCandidateRequestSchema = extractionCandidateSchema.
 
 export const createIngestItemRequestSchema = z.object({
   source: z.string().min(1),
+  sourceName: z.string().min(1).optional(),
+  sourceType: researchSourceTypeSchema.optional(),
+  publishedAt: z.string().min(1).optional(),
+  reportingPeriod: z.string().min(1).optional(),
   kind: ingestKindSchema.exclude(["filing"]),
   ticker: z.string().min(1).optional(),
   confidence: z.string().min(1).optional(),
@@ -146,6 +159,10 @@ export const rejectIngestItemRequestSchema = z.object({
 
 export const updateIngestItemRequestSchema = z.object({
   source: z.string().min(1).optional(),
+  sourceName: z.string().min(1).optional(),
+  sourceType: researchSourceTypeSchema.optional(),
+  publishedAt: z.string().min(1).optional(),
+  reportingPeriod: z.string().min(1).optional(),
   kind: ingestKindSchema.optional(),
   ticker: z.string().min(1).optional(),
   confidence: z.string().min(1).optional(),
@@ -309,6 +326,7 @@ export type SignalAction = z.infer<typeof signalActionSchema>;
 export type ViewKey = z.infer<typeof viewKeySchema>;
 export type IngestStatus = z.infer<typeof ingestStatusSchema>;
 export type IngestKind = z.infer<typeof ingestKindSchema>;
+export type ResearchSourceType = z.infer<typeof researchSourceTypeSchema>;
 export type ExtractionProvider = z.infer<typeof extractionProviderSchema>;
 export type ExtractionStatus = z.infer<typeof extractionStatusSchema>;
 export type TickerMove = z.infer<typeof tickerMoveSchema>;

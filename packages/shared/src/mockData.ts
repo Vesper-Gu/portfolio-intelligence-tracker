@@ -147,6 +147,9 @@ export const ingestItems: IngestItem[] = [
   {
     id: "ING-1024",
     source: "@Investor_X 推文",
+    sourceName: "@Investor_X",
+    sourceType: "kol_post",
+    publishedAt: "2026-05-12",
     kind: "text",
     ticker: "NVDA",
     confidence: "0.98",
@@ -156,6 +159,9 @@ export const ingestItems: IngestItem[] = [
   {
     id: "ING-1025",
     source: "Terminal OCR",
+    sourceName: "Terminal OCR",
+    sourceType: "screenshot",
+    publishedAt: "2026-05-20",
     kind: "screenshot",
     ticker: "MSTR",
     confidence: "0.54",
@@ -165,6 +171,10 @@ export const ingestItems: IngestItem[] = [
   {
     id: "ING-1026",
     source: "SEC 13F",
+    sourceName: "Sample Fund 13F",
+    sourceType: "fund_filing",
+    publishedAt: "2026-05-15",
+    reportingPeriod: "2026 Q1",
     kind: "filing",
     ticker: "SMH",
     confidence: "0.91",

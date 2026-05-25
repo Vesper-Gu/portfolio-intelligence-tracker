@@ -13,6 +13,7 @@ import {
   type QualityEvent,
   type OpsStatus,
   type RagQueryResponse,
+  type ResearchSourceType,
   type SignalAction,
   type SourceItem,
   type Tone,
@@ -56,7 +57,26 @@ const toneClass: Record<Tone, string> = {
   positive: "tone-positive",
   negative: "tone-negative",
   warning: "tone-warning",
-  neutral: "tone-neutral"
+  neutral: "tone-neutral",
+  empty: "tone-empty"
+};
+
+const researchSourceOptions: Array<{ value: ResearchSourceType; label: string }> = [
+  { value: "kol_post", label: "KOL 推文" },
+  { value: "fund_filing", label: "基金披露 / 13F" },
+  { value: "research_article", label: "研究文章" },
+  { value: "personal_note", label: "个人笔记" },
+  { value: "screenshot", label: "截图资料" },
+  { value: "other", label: "其他" }
+];
+
+const emptyAnalysisDashboardPayload: DashboardPayload = {
+  ...fallbackDashboardPayload,
+  tickerMoves: [],
+  holdingSignals: [],
+  evidenceItems: [],
+  heatmapColumns: [],
+  heatmapRows: []
 };
 
 const ingestStatusTone: Record<IngestStatus, Tone> = {
@@ -74,6 +94,12 @@ function actionTone(action: string): Tone {
   return "neutral";
 }
 
+function stanceTone(stance: PortfolioPosition["netStance"]): Tone {
+  if (stance === "看多") return "positive";
+  if (stance === "看空") return "negative";
+  return "warning";
+}
+
 function formatShortDate(value: string) {
   return new Intl.DateTimeFormat("zh-CN", {
     month: "2-digit",
@@ -81,6 +107,14 @@ function formatShortDate(value: string) {
     hour: "2-digit",
     minute: "2-digit"
   }).format(new Date(value));
+}
+
+function formatSourceType(sourceType?: ResearchSourceType) {
+  return researchSourceOptions.find((option) => option.value === sourceType)?.label ?? "未分类";
+}
+
+function sourceDisplayName(item: Pick<IngestItem, "source" | "sourceName">) {
+  return item.sourceName ?? formatSourceForUser(item.source);
 }
 
 function describeCandidateStatus(candidate: ExtractionCandidate) {
@@ -257,7 +291,7 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
   const [sourceItems, setSourceItems] = useState<SourceItem[]>(fallbackSources);
   const [selectedSource, setSelectedSource] = useState<SourceItem>(fallbackSources[0]);
   const [sourcesStatus, setSourcesStatus] = useState<"api" | "fallback" | "loading">("loading");
-  const [dashboardPayload, setDashboardPayload] = useState<DashboardPayload>(fallbackDashboardPayload);
+  const [dashboardPayload, setDashboardPayload] = useState<DashboardPayload>(emptyAnalysisDashboardPayload);
   const [dataStatus, setDataStatus] = useState<"api" | "error" | "loading">("loading");
   const [holdings, setHoldings] = useState<HoldingRecord[]>([]);
   const [portfolioPositions, setPortfolioPositions] = useState<PortfolioPosition[]>([]);
@@ -299,7 +333,7 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
           return;
         }
         console.error("Portfolio data load failed", error);
-        setDashboardPayload(fallbackDashboardPayload);
+        setDashboardPayload(emptyAnalysisDashboardPayload);
         setHoldings([]);
         setPortfolioPositions([]);
         setRecentEvents([]);
@@ -351,14 +385,18 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
           onChange={(event) => setCommand(event.target.value)}
           aria-label="命令输入"
         />
-        <div className="session-clock">2026-05-21 上海 实时</div>
+        <div className="session-clock">私有资料分析工作台</div>
       </header>
 
-      <section className="ticker-strip" aria-label="市场 ticker">
-        {dashboardPayload.tickerMoves.map((ticker) => (
-          <div className="ticker-item" key={ticker.symbol}>
-            <span>{ticker.symbol}</span>
-            <strong className={toneClass[ticker.tone]}>{ticker.change}</strong>
+      <section className="ticker-strip" aria-label="已确认资料 ticker">
+        {portfolioPositions.length === 0 ? (
+          <div className="ticker-item empty-strip">
+            <span>暂无已确认资料形成的标的倾向</span>
+          </div>
+        ) : portfolioPositions.slice(0, 8).map((position) => (
+          <div className="ticker-item" key={position.ticker}>
+            <span>{position.ticker}</span>
+            <strong className={toneClass[stanceTone(position.netStance)]}>{position.netStance}</strong>
           </div>
         ))}
       </section>
@@ -738,24 +776,30 @@ function DashboardView({
 
       <section className="panel heatmap-panel">
         <div className="panel-header">
-          <span>KOL × Ticker 热力图</span>
-          <strong>辅助观察</strong>
+          <span>来源 × Ticker 倾向矩阵</span>
+          <strong>已确认资料</strong>
         </div>
-        <div className="heatmap">
-          <div className="heatmap-corner" />
-          {heatmapColumns.map((column) => (
-            <div className="heatmap-label column" key={column}>{column}</div>
-          ))}
-          {heatmapRows.map((row) => (
-            <div className="heatmap-row" key={row.label}>
-              <div className="heatmap-label row">{row.label}</div>
-              {row.cells.map((cell, index) => (
-                <div className={`heat-cell ${toneClass[cell]}`} key={`${row.label}-${index}`} />
+        {heatmapColumns.length === 0 ? (
+          <p className="empty-state">加入并确认带来源主体的资料后，这里将展示跨来源持仓倾向。</p>
+        ) : (
+          <>
+            <div className="heatmap" style={{ gridTemplateColumns: `112px repeat(${heatmapColumns.length}, 54px)` }}>
+              <div className="heatmap-corner" />
+              {heatmapColumns.map((column) => (
+                <div className="heatmap-label column" key={column}>{column}</div>
+              ))}
+              {heatmapRows.map((row) => (
+                <div className="heatmap-row" key={row.label}>
+                  <div className="heatmap-label row" title={row.label}>{row.label}</div>
+                  {row.cells.map((cell, index) => (
+                    <div className={`heat-cell ${toneClass[cell]}`} key={`${row.label}-${index}`} />
+                  ))}
+                </div>
               ))}
             </div>
-          ))}
-        </div>
-        <div className="legend">绿=加仓 / 高共识 · 黄=持有 / 观察 · 红=减仓 / 风险 · 深灰=无记录</div>
+            <div className="legend">绿=加仓 / 新建仓 · 黄=持有 / 观察 · 红=减仓 / 风险 · 深灰=无记录</div>
+          </>
+        )}
       </section>
 
       <section className="panel dashboard-ask-panel">
@@ -951,7 +995,10 @@ function EvidenceDetailDrawer({ ingestItemId, onClose }: { ingestItemId: string;
               <Field label="Ticker" value={item.ticker} tone="positive" />
               <Field label="状态" value={item.status} tone={ingestStatusTone[item.status]} />
               <Field label="资料类型" value={item.kind} tone="neutral" />
-              <Field label="来源" value={formatSourceForUser(item.source)} tone="neutral" />
+              <Field label="来源主体" value={sourceDisplayName(item)} tone="neutral" />
+              <Field label="来源类型" value={formatSourceType(item.sourceType)} tone="neutral" />
+              {item.publishedAt && <Field label="资料日期" value={item.publishedAt} tone="neutral" />}
+              {item.reportingPeriod && <Field label="报告期" value={item.reportingPeriod} tone="neutral" />}
             </div>
             <section className="evidence-section">
               <h3>资料结论</h3>
@@ -993,6 +1040,10 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
   const [newIngestMode, setNewIngestMode] = useState<NewIngestMode>("link");
   const [linkValue, setLinkValue] = useState("");
   const [textValue, setTextValue] = useState("");
+  const [newSourceName, setNewSourceName] = useState("");
+  const [newSourceType, setNewSourceType] = useState<ResearchSourceType>("kol_post");
+  const [newPublishedAt, setNewPublishedAt] = useState("");
+  const [newReportingPeriod, setNewReportingPeriod] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<SelectedImageFile | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [previewStatus, setPreviewStatus] = useState<string | null>(null);
@@ -1001,6 +1052,10 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
   const [editAction, setEditAction] = useState<SignalAction>("观察");
   const [editConfidence, setEditConfidence] = useState("0.00");
   const [editSummary, setEditSummary] = useState("");
+  const [editSourceName, setEditSourceName] = useState("");
+  const [editSourceType, setEditSourceType] = useState<ResearchSourceType>("other");
+  const [editPublishedAt, setEditPublishedAt] = useState("");
+  const [editReportingPeriod, setEditReportingPeriod] = useState("");
   const selected = items.find((item) => item.id === selectedId) ?? items[0];
 
   useEffect(() => {
@@ -1060,6 +1115,10 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
     setEditAction(selected.extractedAction ?? "观察");
     setEditConfidence(selected.extractedConfidence ?? selected.confidence);
     setEditSummary(selected.extractionSummary ?? "");
+    setEditSourceName(selected.sourceName ?? "");
+    setEditSourceType(selected.sourceType ?? "other");
+    setEditPublishedAt(selected.publishedAt?.slice(0, 10) ?? "");
+    setEditReportingPeriod(selected.reportingPeriod ?? "");
   }, [selected]);
 
   async function runMutation(action: () => Promise<IngestItem>, successText: string) {
@@ -1097,6 +1156,11 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
   async function handleCreateIngestItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (!newSourceName.trim()) {
+      setStatusText("请填写来源主体，例如 KOL 名称或基金名称");
+      return;
+    }
+
     if (newIngestMode === "screenshot" && !selectedImageFile) {
       setStatusText("请先选择图片文件");
       return;
@@ -1112,14 +1176,21 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
     setIsMutating(true);
 
     try {
-      const item = selectedImageFile
-        ? await uploadIngestImage(selectedImageFile.file)
+      const isScreenshot = newIngestMode === "screenshot";
+      const createdItem = isScreenshot
+        ? await uploadIngestImage(selectedImageFile!.file)
         : await createIngestItem(request as CreateIngestItemRequest);
+      const item = isScreenshot
+        ? await updateIngestItem(createdItem.id, { ...buildNewSourceMetadata(), status: "待复核" })
+        : createdItem;
       prependItem(item);
       setStatusText(`${item.id} 已进入待复核队列`);
       setLinkValue("");
       setTextValue("");
       setSelectedImageFile(null);
+      setNewSourceName("");
+      setNewPublishedAt("");
+      setNewReportingPeriod("");
     } catch {
       setStatusText("新增录入失败，请确认后端服务状态");
     } finally {
@@ -1173,6 +1244,10 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
 
     await runMutation(
       () => updateIngestItem(selected.id, {
+        sourceName: editSourceName.trim() || undefined,
+        sourceType: editSourceType,
+        publishedAt: editPublishedAt || undefined,
+        reportingPeriod: editReportingPeriod.trim() || undefined,
         ticker,
         confidence,
         status: Number(confidence) >= 0.8 ? "可接受" : "需人工确认",
@@ -1195,17 +1270,28 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
   }
 
   function buildCreateIngestRequest(): CreateIngestItemRequest | null {
+    const sourceMetadata = buildNewSourceMetadata();
+
     if (newIngestMode === "link") {
       const link = linkValue.trim();
-      return link ? { source: link, kind: "link", rawText: link, ticker: "UNKNOWN" } : null;
+      return link ? { source: link, ...sourceMetadata, kind: "link", rawText: link, ticker: "UNKNOWN" } : null;
     }
 
     if (newIngestMode === "text") {
       const text = textValue.trim();
-      return text ? { source: "用户粘贴文本", kind: "text", rawText: text, ticker: "UNKNOWN" } : null;
+      return text ? { source: "用户粘贴文本", ...sourceMetadata, kind: "text", rawText: text, ticker: "UNKNOWN" } : null;
     }
 
     return null;
+  }
+
+  function buildNewSourceMetadata() {
+    return {
+      sourceName: newSourceName.trim(),
+      sourceType: newSourceType,
+      publishedAt: newPublishedAt || undefined,
+      reportingPeriod: newReportingPeriod.trim() || undefined
+    };
   }
 
   if (!selected) {
@@ -1230,6 +1316,36 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
               <button className={newIngestMode === "link" ? "active" : undefined} onClick={() => setNewIngestMode("link")} type="button">链接</button>
               <button className={newIngestMode === "text" ? "active" : undefined} onClick={() => setNewIngestMode("text")} type="button">文本</button>
               <button className={newIngestMode === "screenshot" ? "active" : undefined} onClick={() => setNewIngestMode("screenshot")} type="button">图片</button>
+            </div>
+            <div className="source-metadata-grid">
+              <input
+                className="terminal-input"
+                onChange={(event) => setNewSourceName(event.target.value)}
+                placeholder="来源主体，如 @KOL 或 Fund Name"
+                required
+                value={newSourceName}
+              />
+              <select
+                className="terminal-select"
+                onChange={(event) => setNewSourceType(event.target.value as ResearchSourceType)}
+                value={newSourceType}
+              >
+                {researchSourceOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <input
+                className="terminal-input"
+                onChange={(event) => setNewPublishedAt(event.target.value)}
+                type="date"
+                value={newPublishedAt}
+              />
+              <input
+                className="terminal-input"
+                onChange={(event) => setNewReportingPeriod(event.target.value)}
+                placeholder="报告期，例如 2026 Q1"
+                value={newReportingPeriod}
+              />
             </div>
             {newIngestMode === "link" && (
               <input
@@ -1282,7 +1398,7 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
 
       <section className="panel review-panel">
         <div className="panel-header">解析预览</div>
-        <div className="review-source">{selected.source} · {selected.kind}</div>
+        <div className="review-source">{sourceDisplayName(selected)} · {formatSourceType(selected.sourceType)} · {selected.kind}</div>
         {selected.kind === "screenshot" && selected.storageObjectKey && (
           <div className="image-preview-block">
             <button disabled={isMutating} onClick={handleLoadImagePreview} type="button">生成图片预览</button>
@@ -1299,9 +1415,50 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
           <Field label="Status" value={selected.status} tone={ingestStatusTone[selected.status]} />
           <Field label="识别动作" value={selected.extractedAction ?? "待解析"} tone={selected.extractedAction ? "warning" : "neutral"} />
           <Field label="资料结论" value={selected.extractionSummary ? hideConfidenceText(selected.extractionSummary) : "尚未解析"} tone={selected.extractionSummary ? "positive" : "neutral"} />
+          <Field label="资料日期" value={selected.publishedAt ?? "待补充"} tone="neutral" />
+          <Field label="报告期" value={selected.reportingPeriod ?? "不适用"} tone="neutral" />
           <Field label="加入位置" value="标的资料库" tone="neutral" />
         </div>
         <div className="edit-grid">
+          <label>
+            <span>来源主体</span>
+            <input
+              className="terminal-input"
+              onChange={(event) => setEditSourceName(event.target.value)}
+              placeholder="KOL 或基金名称"
+              value={editSourceName}
+            />
+          </label>
+          <label>
+            <span>来源类型</span>
+            <select
+              className="terminal-select"
+              onChange={(event) => setEditSourceType(event.target.value as ResearchSourceType)}
+              value={editSourceType}
+            >
+              {researchSourceOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>资料日期</span>
+            <input
+              className="terminal-input"
+              onChange={(event) => setEditPublishedAt(event.target.value)}
+              type="date"
+              value={editPublishedAt}
+            />
+          </label>
+          <label>
+            <span>报告期</span>
+            <input
+              className="terminal-input"
+              onChange={(event) => setEditReportingPeriod(event.target.value)}
+              placeholder="例如 2026 Q1"
+              value={editReportingPeriod}
+            />
+          </label>
           <label>
             <span>Ticker</span>
             <input
