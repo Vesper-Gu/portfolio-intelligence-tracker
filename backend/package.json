@@ -1,0 +1,15 @@
+{
+  "name": "@pit/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node src/server.js",
+    "test": "node --test",
+    "check": "node --check src/server.js && node --check src/domain/models.js && node --check src/repositories/memoryRepository.js && node --check src/services/portfolioService.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+
