@@ -1,43 +1,110 @@
 # Portfolio Intelligence Tracker
 
-个人投资研究中的有效信号通常并不集中在一张表里，而是分散在 KOL 推文、大型基金 `13F` 披露、研究文章、持仓截图和个人笔记中。单独阅读每一条信息很容易丢失上下文，也很难持续判断：不同来源是否正在关注同一标的、某类资产是否反复出现相似的增持/减持动作、一个判断最初来自哪份资料。
+将散落在 KOL 推文、基金 `13F` 披露、研究文章、截图和个人笔记中的投资研究线索，整理为可追溯、可比较、可连续查询的个人资料库。
 
-Portfolio Intelligence Tracker 是一个面向个人研究者的投资信息聚合与持仓线索分析平台。它将零散的公开资料和私有研究记录沉淀为可追溯的结构化资料库，按标的聚合来源、操作与时间变化，帮助用户发现跨来源的相似持仓倾向和操作线索，并随时回到原始证据核验结论。
+[在线体验 Demo](https://portfolio-intelligence-tracker-demo.onrender.com) | [产品介绍](./docs/PROJECT_INTRODUCTION.md) | [架构设计](./docs/ARCHITECTURE.md) | [安全与隐私](./docs/SECURITY.md)
 
-平台提供 AI 解析和基于证据的对话查询，用于降低整理与回溯成本；它不执行交易，也不输出脱离资料来源的投资建议或实时市场判断。
+> 这是研究资料管理与线索归纳工具，不执行交易，不提供实时行情判断或投资建议。问答层只应基于用户资料库中检索到的证据回答。
 
-## 解决的问题
+## 为什么做这个项目
 
-- **资料分散**：推文、`13F`、文章、截图和研究备注分布在不同渠道，缺少统一的研究底稿。
-- **信号难以横向比较**：单条信息可以阅读，但很难快速识别多个来源对同一 ticker 的共同关注、操作方向与近期变化。
-- **结论难以复核**：一段时间后往往只记得“看过某个机会”，却无法定位当时依据的原文或图片。
-- **非结构化整理成本高**：截图和文字摘录需要手工转录为标的、动作、来源和时间记录。
+个人投资研究经常不是缺少信息，而是信息过于零碎：
 
-## 核心能力
+- 某位投资者在推文中提到加仓一家公司。
+- 某只基金在新一期 `13F` 中新增或减持了同一赛道。
+- 一张终端截图或一段个人笔记中记录了值得追踪的线索。
+- 数周后想回看判断依据，却已经无法定位原始资料。
 
-- **多源研究资料归集**：接收来自 KOL 推文、基金披露、研究文章、截图与个人笔记的文本、链接或图片资料。
-- **结构化提取与人工确认**：AI 从非结构化资料中识别 ticker、操作方向和摘要；模型结果须经人工确认后才进入正式资料库。
-- **持仓倾向聚合分析**：按 ticker 汇总来源、动作和时间事件，展示不同资料中重复出现的标的关注与相似操作线索。
-- **原始证据追溯**：从标的资料库或问答引用直接打开原文/原图与解析记录，避免聚合结果脱离依据。
-- **基于资料的连续问答**：围绕已确认资料持续提问，可选使用 OpenAI-compatible LLM 组织回答，但只能基于检索到的证据输出。
-- **用户数据治理**：支持 Supabase Auth、`user_id` 隔离、RLS migration、账户数据导出和删除。
-- **敏感资料保护**：截图存入私有 Storage bucket，预览使用短期 signed URL；API key 仅由服务端读取。
+单纯收藏链接无法回答更进一步的问题：哪些来源同时在关注某个标的？近期出现了哪些相似的增持或减持动作？一个结论究竟来自哪份原始材料？
+
+Portfolio Intelligence Tracker 的目标是把这些细碎资料转化为研究过程中的结构化底稿：先保存证据，再提取线索，经人工确认后进行跨来源聚合分析，最后通过带引用的对话方式快速回溯已有资料。
+
+## 可以用它做什么
+
+| 研究任务 | 产品支持 |
+| --- | --- |
+| 收集零散研究资料 | 录入链接、文本与图片来源，统一进入确认队列 |
+| 从非结构化信息中抓取要点 | 提取 ticker、动作、摘要、来源与时间等候选字段 |
+| 避免 AI 误写事实 | 只有经人工确认的记录才进入正式资料库 |
+| 找到跨来源共同倾向 | 按标的汇总来源、动作与时间变化，并提供来源 x ticker 热力矩阵 |
+| 回查某条结论的出处 | 从持仓聚合结果和问答引用返回原始资料及确认事件 |
+| 连续追问已有研究记录 | 通过 RAG + LLM 对话查询资料库，回答受到检索证据约束 |
+
+例如，在确认过的研究材料基础上，用户可以查询：
+
+- `最近哪些来源都提到了 NVDA？`
+- `某只基金和关注的 KOL 是否对同一标的出现相似操作？`
+- `SMH 最近的新增仓位记录来自哪里？`
+- `我目前资料库中有哪些风险或减仓线索？`
+
+## 使用流程
+
+```text
+录入资料（链接 / 文本 / 截图）
+        |
+        v
+AI 提取候选信息（ticker / 动作 / 摘要 / 来源 / 日期）
+        |
+        v
+人工确认或修正
+        |
+        v
+标的资料库与来源倾向矩阵
+        |
+        v
+带原始证据引用的连续问答
+```
+
+核心原则是：模型帮助整理信息，但不会绕过人工确认写入正式结论；对话帮助检索与归纳资料，但不补充资料库以外的投资判断。
+
+## 在线 Demo
+
+直接访问：[https://portfolio-intelligence-tracker-demo.onrender.com](https://portfolio-intelligence-tracker-demo.onrender.com)
+
+公开 Demo 预置了合成研究记录，可以体验：
+
+- 总览中的标的聚合、近期变化和来源倾向矩阵。
+- 录入确认队列与结构化字段修改流程。
+- 标的资料库中的证据追溯。
+- 基于已确认演示资料的连续问答。
+
+Demo 为保护访客数据而刻意限制了能力：
+
+- 不接受图片上传，不处理真实投资截图。
+- 不连接持久化数据库、第三方 Vision 或外部 LLM。
+- 每个浏览器使用隔离的匿名内存会话；服务重启后操作会被重置。
+- Render 免费实例闲置后会休眠，首次访问可能需要等待约 50 秒。
+
+因此，公开 Demo 的问答使用证据约束的模板答案；接入私有数据库和服务端 LLM 配置后，正式部署可在相同证据边界内生成更自然的回答。
+
+## 功能状态
+
+| 功能 | 当前实现 |
+| --- | --- |
+| 多源资料录入与复核 | 已实现 |
+| AI extraction 候选与人工确认 | 已实现；默认可用规则解析，支持外部模型配置 |
+| 标的聚合、事件变化与来源倾向矩阵 | 已实现 |
+| 证据详情与短期图片预览 | 已实现；图片能力仅在私有配置中启用 |
+| 连续 RAG 对话与引用列表 | 已实现；LLM 为可选服务端集成 |
+| Supabase Auth、用户隔离与 RLS migration | 已实现 |
+| 账户数据导出与删除 | 已实现 |
+| 公开无密钥演示部署 | 已上线 |
 
 ## 技术架构
 
 ```text
-React + Vite web app
+React + Vite Web App
         |
         v
-Fastify API  -----> optional DeepSeek-compatible RAG / text extraction
-        |          optional Kimi-compatible vision extraction
+Fastify API  -----> optional LLM text extraction / evidence-grounded answer generation
+        |          optional Vision extraction
         v
 Repository interface
    |                    |
-mock repository     Drizzle + Supabase PostgreSQL / Storage
+mock repository     Drizzle + Supabase PostgreSQL / Private Storage
 ```
 
-当前主实现为 TypeScript monorepo：
+项目采用 TypeScript monorepo：
 
 ```text
 apps/
@@ -46,12 +113,12 @@ apps/
 packages/
   shared/     Zod schema 与合成演示数据
 docs/
-  API.md ARCHITECTURE.md PRIVACY.md SECURITY.md UI_DESIGN.md
+  产品、API、架构、隐私、安全和部署文档
 legacy/
-  initial-backend-prototype/  早期 JavaScript 原型，仅作设计演进参考
+  initial-backend-prototype/  早期 JavaScript 原型参考
 ```
 
-## 快速开始
+## 本地运行
 
 要求：Node.js `>=22`。
 
@@ -61,27 +128,12 @@ cp .env.example .env
 npm run dev
 ```
 
-默认使用不含真实用户资料的内存 mock repository，不需要任何云端密钥：
+默认配置使用合成数据和内存 repository，不需要数据库或模型密钥：
 
-- Web: [http://127.0.0.1:5173](http://127.0.0.1:5173)
-- API health: [http://127.0.0.1:8787/health](http://127.0.0.1:8787/health)
+- Web：[http://127.0.0.1:5173](http://127.0.0.1:5173)
+- API health：[http://127.0.0.1:8787/health](http://127.0.0.1:8787/health)
 
-## 持久化与模型配置
-
-本地 `.env` 不得提交到 Git。以下模式按需启用：
-
-| 能力 | 配置 |
-| --- | --- |
-| PostgreSQL 持久化 | `DATA_REPOSITORY=database`, `DATABASE_URL` |
-| 多用户认证 | `AUTH_MODE=external`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` |
-| 私有截图存储 | `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET` |
-| 文本解析 | `DEEPSEEK_API_KEY` |
-| 图片解析 | `VISION_PROVIDER=kimi`, `MOONSHOT_API_KEY` |
-| RAG 自然语言生成 | `RAG_LLM_API_KEY`，未配置时使用确定性回退答案 |
-
-`SUPABASE_SERVICE_ROLE_KEY`、LLM 密钥和数据库连接串只能位于后端环境变量。不要把 service-role key 写入任何 `VITE_*` 变量。
-
-## 验证
+验证命令：
 
 ```bash
 npm run typecheck
@@ -89,39 +141,51 @@ npm run test
 npm run build
 ```
 
-API 测试覆盖录入、确认/驳回、资料追溯、连续问答、账户删除以及不同用户数据隔离。
+## 私有部署配置
 
-## 公开 Demo 部署
+要允许真实用户保存研究资料或上传截图，必须在服务端配置认证、持久化和隐私保护能力。
 
-仓库包含 `render.yaml`，可部署一个不需要密钥的公开演示实例：
+| 能力 | 必需配置 |
+| --- | --- |
+| PostgreSQL 持久化 | `DATA_REPOSITORY=database`, `DATABASE_URL` |
+| 多用户认证 | `AUTH_MODE=external`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` |
+| 私有截图存储 | `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET` |
+| 文本解析模型 | `DEEPSEEK_API_KEY` |
+| 图片解析模型 | `VISION_PROVIDER=kimi`, `MOONSHOT_API_KEY` |
+| RAG 自然语言生成 | `RAG_LLM_API_KEY`；未配置时使用确定性答案 |
 
-- 前端与 Fastify API 由同一个 Render Web Service 提供。
-- `AUTH_MODE=demo` 为每个浏览器分配匿名演示会话，操作不会影响其他访客。
-- 数据仅保存在服务进程内，实例重启后恢复合成示例资料。
-- Demo 不启用图片上传、数据库、第三方 Vision 或 LLM；问答使用证据约束的模板回退。
+安全要求：
 
-部署步骤与正式上线边界见 [docs/DEMO_DEPLOYMENT.md](./docs/DEMO_DEPLOYMENT.md)。
+- `SUPABASE_SERVICE_ROLE_KEY`、数据库连接串与模型密钥只能存在于后端环境变量中。
+- 不要将真实截图、用户导出数据、signed URL、密钥或本地 `.env` 提交至 Git。
+- 上线处理真实资料前，应验证 RLS、私有 Storage、额度限制、备份告警和正式隐私政策。
+- 启用 Vision 或 LLM provider 时，部署者必须向用户说明资料会发送到所配置的模型服务商。
 
-## 安全与隐私
+## Demo 部署
 
-这是处理研究截图与备注的应用，公开仓库只包含合成 fixtures 和占位配置。
+仓库提供 [`render.yaml`](./render.yaml)，用于部署无密钥公开演示服务：
 
-- 不提交 `.env`、真实截图、导出数据、signed URL、账户标识或 provider key。
-- 生产部署必须启用认证、RLS、私有 Storage bucket、上传大小/MIME 限制与调用额度限制。
-- 启用 Vision 或 LLM provider 时，相关资料内容会发送到所配置的模型服务商；部署者需要向用户说明该处理行为。
-- 安全策略见 [SECURITY.md](./SECURITY.md)，隐私边界见 [docs/PRIVACY.md](./docs/PRIVACY.md)。
+```text
+Build:  VITE_DEMO_MODE=true npm install && VITE_DEMO_MODE=true npm run build
+Start:  npm run start:demo
+Health: /health
+```
 
-## 文档
+完整说明见 [Demo 部署文档](./docs/DEMO_DEPLOYMENT.md)。
 
-- [产品介绍](./docs/PROJECT_INTRODUCTION.md)
-- [需求说明](./docs/REQUIREMENTS.md)
-- [架构设计](./docs/ARCHITECTURE.md)
-- [API 约定](./docs/API.md)
-- [界面设计](./docs/UI_DESIGN.md)
-- [隐私说明](./docs/PRIVACY.md)
-- [安全设计](./docs/SECURITY.md)
-- [技术选型](./docs/TECH_STACK.md)
+## 相关文档
 
-## 发布状态
+| 文档 | 内容 |
+| --- | --- |
+| [产品介绍](./docs/PROJECT_INTRODUCTION.md) | 项目背景、产品目标与简历表达 |
+| [需求说明](./docs/REQUIREMENTS.md) | 范围、用户流程与约束 |
+| [架构设计](./docs/ARCHITECTURE.md) | 系统结构、数据模型与部署模式 |
+| [API 约定](./docs/API.md) | 接口 contract 与鉴权说明 |
+| [界面设计](./docs/UI_DESIGN.md) | 交互和视图设计 |
+| [隐私说明](./docs/PRIVACY.md) | 用户数据处理边界 |
+| [安全设计](./docs/SECURITY.md) | 密钥、上传与访问控制要求 |
+| [技术选型](./docs/TECH_STACK.md) | 技术栈与开发命令 |
 
-当前仓库适合展示与继续开发。部署到真实用户环境前，仍需在目标 Supabase 项目验证 migrations 与 RLS、配置备份与告警，并发布正式隐私政策。
+## 当前定位
+
+当前仓库已具备可公开展示的产品 Demo 与继续开发的核心架构。它适合用于演示“研究资料采集 - 人工确认 - 跨来源倾向分析 - 可追溯问答”的完整闭环；在面向真实用户开放私有资料存储前，仍需完成目标环境中的认证、RLS、存储、监控与隐私合规验证。
