@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-export type AuthMode = "local-dev" | "external";
+export type AuthMode = "local-dev" | "demo" | "external";
 export type AuthVerifier = (authorization?: string) => Promise<string> | string;
 
 export interface AuthConfiguration {
@@ -9,6 +9,15 @@ export interface AuthConfiguration {
 }
 
 export function createAuthConfiguration(env: NodeJS.ProcessEnv): AuthConfiguration {
+  if (env.AUTH_MODE === "demo") {
+    return {
+      mode: "demo",
+      verifier: () => {
+        throw new Error("Demo sessions are resolved from request headers");
+      }
+    };
+  }
+
   if (env.AUTH_MODE !== "external") {
     const userId = env.DEV_USER_ID?.trim() || "local-dev-user";
 

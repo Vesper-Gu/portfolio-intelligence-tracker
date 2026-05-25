@@ -144,6 +144,16 @@ DATABASE_URL=postgres://...
 
 没有真实数据库凭证时，必须继续使用 mock 模式。
 
+公开演示配置：
+
+```bash
+AUTH_MODE=demo
+DATA_REPOSITORY=mock
+SERVE_WEB=true
+```
+
+该模式由一个 Fastify 服务同时提供构建后的前端静态文件和 API；每个浏览器使用匿名会话隔离合成内存状态，不连接数据库、Storage 或外部模型服务。
+
 ## Migration 与 Seed
 
 版本化 migration 位于 `apps/api/drizzle/`，包含资料持久化、候选历史、正式记录、多用户隔离/RLS，以及 `0009_source_observation_metadata.sql` 中的研究来源元数据字段。

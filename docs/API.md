@@ -100,6 +100,7 @@ LOG_LEVEL=info
 ### 认证与隔离
 
 - `AUTH_MODE=local-dev` 时后端固定使用 `DEV_USER_ID`，用于本地开发，不接受客户端自行声明用户身份。
+- `AUTH_MODE=demo` 时，前端为浏览器生成匿名 `X-Demo-Session-Id`，后端仅使用隔离的合成内存数据；该模式不用于存放真实用户资料。
 - `AUTH_MODE=external` 时，除 `/health` 外的接口要求 `Authorization: Bearer <Supabase access token>`。
 - migration `0008_multi_user_isolation.sql` 为用户资料表增加 `user_id`、索引与 Supabase 可用时的 RLS policies。
 

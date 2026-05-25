@@ -91,6 +91,17 @@ npm run build
 
 API 测试覆盖录入、确认/驳回、资料追溯、连续问答、账户删除以及不同用户数据隔离。
 
+## 公开 Demo 部署
+
+仓库包含 `render.yaml`，可部署一个不需要密钥的公开演示实例：
+
+- 前端与 Fastify API 由同一个 Render Web Service 提供。
+- `AUTH_MODE=demo` 为每个浏览器分配匿名演示会话，操作不会影响其他访客。
+- 数据仅保存在服务进程内，实例重启后恢复合成示例资料。
+- Demo 不启用图片上传、数据库、第三方 Vision 或 LLM；问答使用证据约束的模板回退。
+
+部署步骤与正式上线边界见 [docs/DEMO_DEPLOYMENT.md](./docs/DEMO_DEPLOYMENT.md)。
+
 ## 安全与隐私
 
 这是处理研究截图与备注的应用，公开仓库只包含合成 fixtures 和占位配置。

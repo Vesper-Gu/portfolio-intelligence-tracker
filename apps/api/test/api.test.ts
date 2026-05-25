@@ -99,6 +99,115 @@ test("external auth isolates account data by verified user", async () => {
   assert.equal(userB.ingestItems.length, 0);
 });
 
+test("demo auth serves synthetic positions and isolates each browser session", async () => {
+  const app = buildApp({
+    authMode: "demo",
+    authVerifier: () => "unused",
+    extractionProvider: {
+      extract() {
+        throw new Error("Demo must not use configured extraction provider");
+      }
+    },
+    ragAnswerGenerator: {
+      async generate() {
+        throw new Error("Demo must not use configured answer generator");
+      }
+    },
+    imageUploader: {
+      async uploadImage() {
+        throw new Error("Demo must not store uploaded images");
+      },
+      async createSignedUrl() {
+        throw new Error("Demo must not issue stored image URLs");
+      },
+      async downloadImage() {
+        throw new Error("Demo must not load stored images");
+      },
+      async deleteImage() {
+        throw new Error("Demo must not delete stored images");
+      }
+    }
+  });
+  const sessionAHeaders = { "x-demo-session-id": "session-alpha-0001" };
+  const sessionBHeaders = { "x-demo-session-id": "session-bravo-0002" };
+
+  assert.equal((await app.inject({ method: "GET", url: "/dashboard" })).statusCode, 401);
+
+  const initialDashboard = (await app.inject({
+    method: "GET",
+    url: "/dashboard",
+    headers: sessionAHeaders
+  })).json();
+
+  assert.ok(initialDashboard.heatmapColumns.includes("NVDA"));
+  assert.ok(initialDashboard.heatmapColumns.includes("SMH"));
+  assert.equal(initialDashboard.heatmapRows.length, 2);
+
+  const opsStatus = (await app.inject({ method: "GET", url: "/ops/status", headers: sessionAHeaders })).json();
+  assert.equal(opsStatus.auth.mode, "demo");
+  assert.equal(opsStatus.providers.vision.configured, false);
+  assert.equal(opsStatus.providers.ragLlm.configured, false);
+  assert.equal(opsStatus.providers.storage.configured, false);
+
+  const imageResponse = await app.inject({
+    method: "POST",
+    url: "/ingest-items/upload-image",
+    headers: sessionAHeaders
+  });
+  assert.equal(imageResponse.statusCode, 503);
+
+  const ragResponse = await app.inject({
+    method: "POST",
+    url: "/rag/query",
+    headers: sessionAHeaders,
+    payload: { query: "NVDA 当前有哪些资料？" }
+  });
+  assert.equal(ragResponse.json().answerMode, "template");
+
+  await app.inject({
+    method: "POST",
+    url: "/ingest-items",
+    headers: sessionAHeaders,
+    payload: {
+      source: "用户粘贴文本",
+      sourceName: "Session A Note",
+      sourceType: "personal_note",
+      kind: "text",
+      rawText: "NET session-specific note",
+      ticker: "NET"
+    }
+  });
+
+  const userA = (await app.inject({ method: "GET", url: "/account/export", headers: sessionAHeaders })).json();
+  const userB = (await app.inject({ method: "GET", url: "/account/export", headers: sessionBHeaders })).json();
+
+  assert.equal(userA.ingestItems.length, 4);
+  assert.equal(userB.ingestItems.length, 3);
+  assert.ok(userA.userScope.startsWith("demo-"));
+  assert.notEqual(userA.userScope, userB.userScope);
+});
+
+test("demo static shell can load before a browser session is created", async () => {
+  const priorServeWeb = process.env.SERVE_WEB;
+  process.env.SERVE_WEB = "true";
+
+  try {
+    const app = buildApp({
+      authMode: "demo",
+      authVerifier: () => "unused"
+    });
+    app.get("/", async () => "demo shell");
+    app.get("/assets/app.js", async () => "demo asset");
+
+    assert.equal((await app.inject({ method: "GET", url: "/" })).statusCode, 200);
+    assert.equal((await app.inject({ method: "GET", url: "/assets/app.js" })).statusCode, 200);
+    assert.equal((await app.inject({ method: "GET", url: "/dashboard" })).statusCode, 401);
+  } finally {
+    if (priorServeWeb === undefined) delete process.env.SERVE_WEB;
+    else process.env.SERVE_WEB = priorServeWeb;
+  }
+});
+
 test("account deletion removes only the current user's stored images", async () => {
   const deletedObjectKeys: string[] = [];
   const app = buildApp({

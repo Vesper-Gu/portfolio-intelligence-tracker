@@ -39,8 +39,9 @@ export function createMockRepository(): PortfolioRepository {
 
     if (current) return current;
 
+    const usesDemoFixtures = userId === "local-dev-user" || userId.startsWith("demo-");
     const next: MockUserState = {
-      ingestItems: userId === "local-dev-user" ? ingestItems.map((item) => ({ ...item })) : [],
+      ingestItems: usesDemoFixtures ? ingestItems.map((item) => ({ ...item })) : [],
       extractionCandidates: [],
       holdings: [],
       holdingEvents: [],
@@ -50,6 +51,10 @@ export function createMockRepository(): PortfolioRepository {
       nextCandidateId: 3000,
       nextQualityEventId: 4000
     };
+
+    if (userId.startsWith("demo-")) {
+      seedDemoAcceptedHoldings(next);
+    }
 
     states.set(userId, next);
     return next;
@@ -214,6 +219,23 @@ export function createMockRepository(): PortfolioRepository {
       return { deletedAt: new Date().toISOString(), userScope, deleted };
     }
   };
+}
+
+function seedDemoAcceptedHoldings(state: MockUserState) {
+  const accepted = [
+    { id: "ING-1024", action: "加仓" as const, summary: "KOL 资料记录了 NVDA 的增持观点。" },
+    { id: "ING-1026", action: "新建仓" as const, summary: "基金披露中新增 SMH 持仓记录。" }
+  ];
+
+  for (const seed of accepted) {
+    const item = state.ingestItems.find((candidate) => candidate.id === seed.id);
+    if (!item) continue;
+
+    item.status = "已接受";
+    item.extractedAction = seed.action;
+    item.extractionSummary = seed.summary;
+    createAcceptedHolding(state, item);
+  }
 }
 
 function setHoldingArchiveStatus(state: MockUserState, id: string, status: HoldingRecord["status"]) {

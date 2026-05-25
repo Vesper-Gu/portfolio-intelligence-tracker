@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: portfolio-intelligence-tracker-demo
+    runtime: node
+    plan: free
+    buildCommand: VITE_DEMO_MODE=true npm install && VITE_DEMO_MODE=true npm run build
+    startCommand: npm run start:demo
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: LOG_LEVEL
+        value: info
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: MAX_UPLOAD_MB
+        value: "5"

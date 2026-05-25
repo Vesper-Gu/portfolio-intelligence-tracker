@@ -30,7 +30,8 @@ import {
   type UpdateIngestItemRequest
 } from "@pit/shared";
 
-const defaultApiBaseUrl = "http://127.0.0.1:8787";
+const defaultApiBaseUrl = import.meta.env.PROD ? "" : "http://127.0.0.1:8787";
+const demoSessionStorageKey = "pit-demo-session-id";
 let accessToken: string | null = null;
 
 export function setAccessToken(token: string | null) {
@@ -41,8 +42,19 @@ function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
 
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  if (import.meta.env.VITE_DEMO_MODE === "true") headers.set("X-Demo-Session-Id", getDemoSessionId());
 
   return fetch(input, { ...init, headers });
+}
+
+function getDemoSessionId() {
+  const current = window.localStorage.getItem(demoSessionStorageKey);
+
+  if (current) return current;
+
+  const next = crypto.randomUUID();
+  window.localStorage.setItem(demoSessionStorageKey, next);
+  return next;
 }
 
 export async function fetchDashboardPayload(signal?: AbortSignal): Promise<DashboardPayload> {

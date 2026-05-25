@@ -1034,6 +1034,12 @@ h1 {
   color: var(--orange);
 }
 
+.segmented-control button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .terminal-input,
 .terminal-select,
 .terminal-textarea,

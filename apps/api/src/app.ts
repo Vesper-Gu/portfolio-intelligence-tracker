@@ -22,7 +22,7 @@ import {
   updateSourceRequestSchema,
   updateIngestItemRequestSchema
 } from "@pit/shared";
-import { createExtractionProviderFromEnv, type ExtractionProvider } from "./extraction/provider.js";
+import { createExtractionProviderFromEnv, RuleExtractionProvider, type ExtractionProvider } from "./extraction/provider.js";
 import { createAuthConfiguration, type AuthMode, type AuthVerifier } from "./auth.js";
 import type { RagAnswerGenerator } from "./rag/llm.js";
 import { answerRagQuery } from "./rag/query.js";
@@ -50,10 +50,15 @@ export interface BuildAppOptions {
 
 export function buildApp(options: BuildAppOptions = {}) {
   const repository = options.repository ?? createMockRepository();
-  const extractionProvider = options.extractionProvider ?? createExtractionProviderFromEnv(process.env);
   const auth = options.authVerifier
     ? { mode: options.authMode ?? "external", verifier: options.authVerifier }
     : createAuthConfiguration(process.env);
+  const demoMode = auth.mode === "demo";
+  const imageUploader = demoMode ? undefined : options.imageUploader;
+  const extractionProvider = demoMode
+    ? new RuleExtractionProvider()
+    : options.extractionProvider ?? createExtractionProviderFromEnv(process.env);
+  const ragAnswerGenerator = demoMode ? undefined : options.ragAnswerGenerator;
   const dailyUsageByUser = new Map<string, {
     day: string;
     ragQueries: number;
@@ -86,7 +91,21 @@ export function buildApp(options: BuildAppOptions = {}) {
 
   app.decorateRequest("userId", "");
   app.addHook("preHandler", async (request, reply) => {
-    if (request.url === "/health") return;
+    if (
+      request.url === "/health"
+      || (process.env.SERVE_WEB === "true" && (request.url === "/" || request.url.startsWith("/assets/")))
+    ) return;
+
+    if (auth.mode === "demo") {
+      const sessionId = request.headers["x-demo-session-id"];
+
+      if (typeof sessionId !== "string" || !/^[A-Za-z0-9-]{16,80}$/.test(sessionId)) {
+        return reply.code(401).send({ error: "Demo session required" });
+      }
+
+      request.userId = `demo-${sessionId}`;
+      return;
+    }
 
     try {
       request.userId = await auth.verifier(request.headers.authorization);
@@ -111,21 +130,21 @@ export function buildApp(options: BuildAppOptions = {}) {
     },
     providers: {
       textExtraction: {
-        configured: Boolean(process.env.DEEPSEEK_API_KEY),
-        provider: process.env.DEEPSEEK_API_KEY ? "deepseek_text" : "rule_v1"
+        configured: !demoMode && Boolean(process.env.DEEPSEEK_API_KEY),
+        provider: !demoMode && process.env.DEEPSEEK_API_KEY ? "deepseek_text" : "rule_v1"
       },
       vision: {
-        configured: process.env.VISION_PROVIDER === "kimi" && Boolean(process.env.MOONSHOT_API_KEY),
-        provider: process.env.VISION_PROVIDER || "disabled"
+        configured: !demoMode && process.env.VISION_PROVIDER === "kimi" && Boolean(process.env.MOONSHOT_API_KEY),
+        provider: !demoMode ? process.env.VISION_PROVIDER || "disabled" : "disabled"
       },
       ragLlm: {
-        configured: Boolean(process.env.RAG_LLM_API_KEY || process.env.DEEPSEEK_API_KEY),
+        configured: !demoMode && Boolean(process.env.RAG_LLM_API_KEY || process.env.DEEPSEEK_API_KEY),
         provider: process.env.RAG_LLM_BASE_URL || process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
         model: process.env.RAG_LLM_MODEL || process.env.DEEPSEEK_MODEL || "deepseek-v4-flash"
       },
       storage: {
-        configured: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_STORAGE_BUCKET),
-        bucket: process.env.SUPABASE_STORAGE_BUCKET || "not-configured"
+        configured: Boolean(imageUploader),
+        bucket: imageUploader ? process.env.SUPABASE_STORAGE_BUCKET || "configured" : "not-configured"
       }
     },
     costControls: {
@@ -136,7 +155,7 @@ export function buildApp(options: BuildAppOptions = {}) {
     },
     sessionUsage: usageFor(request.userId),
     privacy: {
-      uploadStoresOriginalImage: Boolean(options.imageUploader),
+      uploadStoresOriginalImage: Boolean(imageUploader),
       signedImagePreviewOnly: true,
       llmReceivesRetrievedContext: true,
       externalFactsAllowed: false
@@ -151,8 +170,8 @@ export function buildApp(options: BuildAppOptions = {}) {
     const snapshot = await repository.exportAccountData(request.userId);
     const objectKeys = snapshot.ingestItems.flatMap((item) => item.storageObjectKey ? [item.storageObjectKey] : []);
 
-    if (options.imageUploader && objectKeys.length) {
-      const results = await Promise.allSettled(objectKeys.map((objectKey) => options.imageUploader!.deleteImage(objectKey)));
+    if (imageUploader && objectKeys.length) {
+      const results = await Promise.allSettled(objectKeys.map((objectKey) => imageUploader.deleteImage(objectKey)));
 
       if (results.some((result) => result.status === "rejected")) {
         return reply.code(502).send({ error: "Stored image deletion failed; account data has not been deleted" });
@@ -211,7 +230,7 @@ export function buildApp(options: BuildAppOptions = {}) {
       request.userId,
       body.query,
       body.limit,
-      options.ragAnswerGenerator,
+      ragAnswerGenerator,
       body.conversationHistory
     );
 
@@ -241,7 +260,7 @@ export function buildApp(options: BuildAppOptions = {}) {
   });
 
   app.post("/ingest-items/upload-image", async (request, reply) => {
-    if (!options.imageUploader) {
+    if (!imageUploader) {
       return reply.code(503).send({ error: "Image storage is not configured" });
     }
 
@@ -267,7 +286,7 @@ export function buildApp(options: BuildAppOptions = {}) {
       return reply.code(400).send({ error: "Image file is empty" });
     }
 
-    const upload = await options.imageUploader.uploadImage(request.userId, {
+    const upload = await imageUploader.uploadImage(request.userId, {
       buffer,
       fileName: file.filename,
       mimeType: file.mimetype
@@ -373,7 +392,7 @@ export function buildApp(options: BuildAppOptions = {}) {
   });
 
   app.get("/ingest-items/:id/image-url", async (request, reply) => {
-    if (!options.imageUploader) {
+    if (!imageUploader) {
       return reply.code(503).send({ error: "Image storage is not configured" });
     }
 
@@ -389,7 +408,7 @@ export function buildApp(options: BuildAppOptions = {}) {
       return reply.code(400).send({ error: "Ingest item does not have a stored image" });
     }
 
-    const signedUrl = await options.imageUploader.createSignedUrl(currentItem.storageObjectKey, imagePreviewExpiresInSeconds);
+    const signedUrl = await imageUploader.createSignedUrl(currentItem.storageObjectKey, imagePreviewExpiresInSeconds);
 
     return {
       url: signedUrl,

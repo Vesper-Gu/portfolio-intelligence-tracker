@@ -52,6 +52,7 @@ const navItems: Array<{ key: ViewKey; label: string }> = [
   { key: "rag", label: "问资料库" },
   { key: "settings", label: "设置" }
 ];
+const publicDemoMode = import.meta.env.VITE_DEMO_MODE === "true";
 
 const toneClass: Record<Tone, string> = {
   positive: "tone-positive",
@@ -275,7 +276,7 @@ export function App() {
 
   return (
     <WorkspaceApp
-      accountLabel={session?.email ?? "本地开发用户"}
+      accountLabel={session?.email ?? (publicDemoMode ? "匿名演示会话" : "本地开发用户")}
       onSignOut={externalAuth ? async () => {
         await signOut();
         setAccessToken(null);
@@ -1315,7 +1316,15 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
             <div className="segmented-control">
               <button className={newIngestMode === "link" ? "active" : undefined} onClick={() => setNewIngestMode("link")} type="button">链接</button>
               <button className={newIngestMode === "text" ? "active" : undefined} onClick={() => setNewIngestMode("text")} type="button">文本</button>
-              <button className={newIngestMode === "screenshot" ? "active" : undefined} onClick={() => setNewIngestMode("screenshot")} type="button">图片</button>
+              <button
+                className={newIngestMode === "screenshot" ? "active" : undefined}
+                disabled={publicDemoMode}
+                onClick={() => setNewIngestMode("screenshot")}
+                title={publicDemoMode ? "公开演示不接收图片资料" : undefined}
+                type="button"
+              >
+                图片
+              </button>
             </div>
             <div className="source-metadata-grid">
               <input
@@ -1631,7 +1640,7 @@ function SettingsView({ accountLabel, onSignOut }: { accountLabel: string; onSig
         </div>
         <div className="settings-copy">
           <p>当前账户：{accountLabel}。资料、候选、持仓和问答检索均按当前账户隔离。</p>
-          <p>可以导出当前资料库 JSON；删除会同时移除当前账户的资料记录和已上传截图。</p>
+          <p>{publicDemoMode ? "演示数据仅在当前服务进程内保留，不接收图片上传。" : "可以导出当前资料库 JSON；删除会同时移除当前账户的资料记录和已上传截图。"}</p>
         </div>
         <div className="settings-actions">
           <button disabled={isMutating} onClick={handleExportData} type="button">导出资料库 JSON</button>
@@ -1672,7 +1681,7 @@ function SettingsView({ accountLabel, onSignOut }: { accountLabel: string; onSig
           <strong>{opsStatus?.privacy.externalFactsAllowed === false ? "仅资料库" : "需检查"}</strong>
         </div>
         <div className="settings-copy">
-          <p>截图和文本会存入后端；图片预览使用短期 signed URL。</p>
+          <p>{publicDemoMode ? "当前为合成数据演示模式，不启用图片存储或外部模型服务。" : "截图和文本会存入后端；图片预览使用短期 signed URL。"}</p>
           <p>点击 AI 解析或问资料库时，系统只把必要的图片、文本或检索上下文发送给已配置的模型服务。</p>
           <p>问资料库不允许补充资料库以外的事实、实时行情或投资建议。</p>
         </div>

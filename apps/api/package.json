@@ -10,7 +10,7 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:cleanup-smoke": "tsx src/db/cleanupDevSmokeData.ts",
-    "start": "node dist/server.js",
+    "start": "node dist/src/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build --workspace @pit/shared && npm run build && node --test dist/test/*.test.js"

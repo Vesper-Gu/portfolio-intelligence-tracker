@@ -270,7 +270,7 @@ export const opsStatusSchema = z.object({
   userScope: z.string(),
   repositoryMode: z.string(),
   auth: z.object({
-    mode: z.enum(["local-dev", "external"]),
+    mode: z.enum(["local-dev", "demo", "external"]),
     userScoped: z.boolean(),
     currentUserId: z.string()
   }),
