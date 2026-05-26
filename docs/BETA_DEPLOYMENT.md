@@ -10,6 +10,7 @@
 
 - 使用 `AUTH_MODE=external`，所有资料接口要求 Supabase 登录令牌。
 - 使用 `DATA_REPOSITORY=database`，研究资料持久化到 Supabase PostgreSQL。
+- Render 等 IPv4 运行环境的 `DATABASE_URL` 必须使用 Supabase Session Pooler 连接地址，而不是默认 IPv6 direct connection。
 - 截图只存入私有 `ingest-uploads` bucket，界面通过短期 signed URL 预览。
 - 模型 key 只配置在 Render 服务端；前端只使用 Supabase publishable key。
 - 问答层只允许基于当前账户检索到的资料作答，不提供资料库以外的市场事实或投资建议。

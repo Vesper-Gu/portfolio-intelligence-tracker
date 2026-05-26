@@ -1,0 +1,1 @@
+ALTER TABLE "__pit_migrations" ENABLE ROW LEVEL SECURITY;
