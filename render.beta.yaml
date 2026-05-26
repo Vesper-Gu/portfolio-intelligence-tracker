@@ -1,0 +1,57 @@
+services:
+  - type: web
+    name: portfolio-intelligence-tracker-beta
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:beta
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: LOG_LEVEL
+        value: info
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: MAX_UPLOAD_MB
+        value: "10"
+      - key: IMAGE_PREVIEW_EXPIRES_IN_SECONDS
+        value: "300"
+      - key: DAILY_VISION_LIMIT
+        value: "20"
+      - key: DAILY_LLM_LIMIT
+        value: "100"
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: ingest-uploads
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEEPSEEK_BASE_URL
+        value: https://api.deepseek.com
+      - key: DEEPSEEK_MODEL
+        value: deepseek-v4-flash
+      - key: RAG_LLM_API_KEY
+        sync: false
+      - key: RAG_LLM_BASE_URL
+        value: https://api.deepseek.com
+      - key: RAG_LLM_MODEL
+        value: deepseek-v4-flash
+      - key: VISION_PROVIDER
+        value: kimi
+      - key: MOONSHOT_API_KEY
+        sync: false
+      - key: MOONSHOT_BASE_URL
+        value: https://api.moonshot.cn/v1
+      - key: MOONSHOT_VISION_MODEL
+        value: kimi-k2.6

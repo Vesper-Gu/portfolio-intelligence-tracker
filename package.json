@@ -12,6 +12,7 @@
     "dev:api": "npm run dev --workspace @pit/api",
     "dev:web": "npm run dev --workspace @pit/web",
     "start:demo": "SERVE_WEB=true AUTH_MODE=demo DATA_REPOSITORY=mock npm run start --workspace @pit/api",
+    "start:beta": "SERVE_WEB=true AUTH_MODE=external DATA_REPOSITORY=database npm run start --workspace @pit/api",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "pretypecheck": "npm run build --workspace @pit/shared",

@@ -173,6 +173,8 @@ Health: /health
 
 完整说明见 [Demo 部署文档](./docs/DEMO_DEPLOYMENT.md)。
 
+需要保存真实个人研究资料时，应另外部署需要登录、私有存储与数据库持久化的 Beta 环境，配置说明见 [私有 Beta 部署文档](./docs/BETA_DEPLOYMENT.md)。
+
 ## 相关文档
 
 | 文档 | 内容 |
@@ -185,3 +187,4 @@ Health: /health
 | [隐私说明](./docs/PRIVACY.md) | 用户数据处理边界 |
 | [安全设计](./docs/SECURITY.md) | 密钥、上传与访问控制要求 |
 | [技术选型](./docs/TECH_STACK.md) | 技术栈与开发命令 |
+| [私有 Beta 部署](./docs/BETA_DEPLOYMENT.md) | 真实资料部署边界与验证清单 |
