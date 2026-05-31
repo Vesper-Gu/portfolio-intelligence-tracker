@@ -1,6 +1,6 @@
 # API 文档
 
-最后更新：2026-05-25
+最后更新：2026-06-01
 
 ## 当前状态
 
@@ -77,8 +77,8 @@ LOG_LEVEL=info
 
 - `auth`：当前认证模式和验证后的用户 scope。本地模式固定为 `DEV_USER_ID`；生产模式使用 Supabase Bearer token。
 - `providers`：文本解析、Vision、RAG LLM 和 Storage 是否配置。
-- `costControls`：上传大小、图片预览有效期、Vision / LLM 的当前进程日额度。
-- `sessionUsage`：当前认证用户在当前服务进程内当日的 RAG 查询、AI 解析和图片上传次数；正式计费与跨实例限流仍需持久化计量。
+- `costControls`：上传大小、图片预览有效期、Vision / LLM 的日额度。
+- `sessionUsage`：当前认证用户持久化保存的当日 RAG 查询、AI 解析和图片上传次数。数据库模式下使用原子 upsert 预占额度，服务重启后不会清零。
 - `privacy`：是否存储原图、是否只用 signed URL、LLM 是否只接收检索上下文。
 
 ### `GET /account/export`
@@ -92,10 +92,25 @@ LOG_LEVEL=info
 - `holdings`
 - `holdingEvents`
 - `qualityEvents`
+- `capabilityTraces`
 
 ### `DELETE /account/data`
 
 用途：删除当前认证用户 scope 下的资料库记录与关联截图对象，并返回删除计数。若对象文件删除失败，接口返回错误且不会先清空数据库记录。
+
+### Capability Harness
+
+`POST /rag/query`、`POST /ingest-items/:id/extract` 和 `POST /ingest-items/upload-image` 统一通过 `CapabilityRunner` 执行。每次执行会写入脱敏 trace，包括：
+
+- `capability`
+- `status`
+- `durationMs`
+- `inputSummary`
+- `outputSummary`
+- `errorCode`
+- `createdAt`
+
+trace 不包含原始资料正文、图片内容、prompt、signed URL 或密钥。
 
 ### 认证与隔离
 
@@ -565,6 +580,8 @@ Provider 行为：
 - `title`
 - `snippet`
 - `score`
+
+LLM 生成结果会在返回前执行 groundedness 校验。没有 citations、出现资料库外 ticker，或输出外部事实与投资建议表达时，接口返回确定性模板答案并将 `answerMode` 标记为 `template`。
 
 ## 下一步 API
 

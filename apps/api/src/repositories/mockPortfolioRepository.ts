@@ -4,6 +4,9 @@ import {
   qualitySummary,
   sources,
   type ExtractionCandidate,
+  type CapabilityName,
+  type CapabilityTrace,
+  type DailyCapabilityUsage,
   type HoldingEvent,
   type HoldingRecord,
   type IngestItem,
@@ -25,6 +28,8 @@ interface MockUserState {
   holdings: HoldingRecord[];
   holdingEvents: HoldingEvent[];
   qualityEvents: QualityEvent[];
+  capabilityTraces: CapabilityTrace[];
+  dailyCapabilityUsage: DailyCapabilityUsage;
   sources: typeof sources;
   nextIngestId: number;
   nextCandidateId: number;
@@ -46,6 +51,8 @@ export function createMockRepository(): PortfolioRepository {
       holdings: [],
       holdingEvents: [],
       qualityEvents: [],
+      capabilityTraces: [],
+      dailyCapabilityUsage: emptyDailyUsage(),
       sources: sources.map((source) => ({ ...source })),
       nextIngestId: 2000,
       nextCandidateId: 3000,
@@ -189,6 +196,26 @@ export function createMockRepository(): PortfolioRepository {
     updateIngestItem(userId, id, request: UpdateIngestItemRequest) {
       return updateItem(stateFor(userId), id, { ...request, status: request.status ?? "已修改" });
     },
+    getDailyCapabilityUsage(userId) {
+      return dailyUsageFor(stateFor(userId));
+    },
+    incrementDailyCapabilityUsage(userId, capability: CapabilityName, limit?: number) {
+      const state = stateFor(userId);
+      const usage = dailyUsageFor(state);
+      if (limit !== undefined && usageValue(usage, capability) >= limit) return undefined;
+      incrementUsage(usage, capability);
+      return usage;
+    },
+    createCapabilityTrace(userId, trace) {
+      const state = stateFor(userId);
+      const created: CapabilityTrace = {
+        id: `CTR-${state.capabilityTraces.length + 1}`,
+        ...trace,
+        createdAt: new Date().toISOString()
+      };
+      state.capabilityTraces = [created, ...state.capabilityTraces];
+      return created;
+    },
     exportAccountData(userScope) {
       const state = stateFor(userScope);
       return {
@@ -198,7 +225,8 @@ export function createMockRepository(): PortfolioRepository {
         extractionCandidates: state.extractionCandidates,
         holdings: state.holdings,
         holdingEvents: state.holdingEvents,
-        qualityEvents: state.qualityEvents
+        qualityEvents: state.qualityEvents,
+        capabilityTraces: state.capabilityTraces
       };
     },
     deleteAccountData(userScope) {
@@ -208,7 +236,8 @@ export function createMockRepository(): PortfolioRepository {
         extractionCandidates: state.extractionCandidates.length,
         holdings: state.holdings.length,
         holdingEvents: state.holdingEvents.length,
-        qualityEvents: state.qualityEvents.length
+        qualityEvents: state.qualityEvents.length,
+        capabilityTraces: state.capabilityTraces.length
       };
 
       state.ingestItems = [];
@@ -216,9 +245,38 @@ export function createMockRepository(): PortfolioRepository {
       state.holdings = [];
       state.holdingEvents = [];
       state.qualityEvents = [];
+      state.capabilityTraces = [];
+      state.dailyCapabilityUsage = emptyDailyUsage();
       return { deletedAt: new Date().toISOString(), userScope, deleted };
     }
   };
+}
+
+function emptyDailyUsage(): DailyCapabilityUsage {
+  return {
+    day: new Date().toISOString().slice(0, 10),
+    ragQueries: 0,
+    extractionRequests: 0,
+    imageUploads: 0
+  };
+}
+
+function dailyUsageFor(state: MockUserState) {
+  const day = new Date().toISOString().slice(0, 10);
+  if (state.dailyCapabilityUsage.day !== day) state.dailyCapabilityUsage = emptyDailyUsage();
+  return state.dailyCapabilityUsage;
+}
+
+function incrementUsage(usage: DailyCapabilityUsage, capability: CapabilityName) {
+  if (capability === "rag_query") usage.ragQueries += 1;
+  if (capability === "extract_signal") usage.extractionRequests += 1;
+  if (capability === "image_upload") usage.imageUploads += 1;
+}
+
+function usageValue(usage: DailyCapabilityUsage, capability: CapabilityName) {
+  if (capability === "rag_query") return usage.ragQueries;
+  if (capability === "extract_signal") return usage.extractionRequests;
+  return usage.imageUploads;
 }
 
 function seedDemoAcceptedHoldings(state: MockUserState) {

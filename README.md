@@ -86,6 +86,7 @@ Demo 为保护访客数据而刻意限制了能力：
 | 标的聚合、事件变化与来源倾向矩阵 | 已实现 |
 | 证据详情与短期图片预览 | 已实现；图片能力仅在私有配置中启用 |
 | 连续 RAG 对话与引用列表 | 已实现；LLM 为可选服务端集成 |
+| Capability Harness、调用 trace 与持久化额度 | 已实现；解析、上传和问答统一记录脱敏运行轨迹 |
 | Supabase Auth、用户隔离与 RLS migration | 已实现 |
 | 账户数据导出与删除 | 已实现 |
 | 公开无密钥演示部署 | 已上线 |
@@ -96,7 +97,7 @@ Demo 为保护访客数据而刻意限制了能力：
 React + Vite Web App
         |
         v
-Fastify API  -----> optional LLM text extraction / evidence-grounded answer generation
+Fastify API  -----> Capability Harness -----> optional LLM text extraction / evidence-grounded answer generation
         |          optional Vision extraction
         v
 Repository interface

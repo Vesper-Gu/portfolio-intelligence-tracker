@@ -8,6 +8,8 @@ export const ingestKindSchema = z.enum(["link", "text", "screenshot", "filing"])
 export const researchSourceTypeSchema = z.enum(["kol_post", "fund_filing", "research_article", "personal_note", "screenshot", "other"]);
 export const extractionProviderSchema = z.enum(["rule_v1", "deepseek_text", "ocr_stub", "vision_llm"]);
 export const extractionStatusSchema = z.enum(["success", "fallback", "error"]);
+export const capabilityNameSchema = z.enum(["rag_query", "extract_signal", "image_upload"]);
+export const capabilityStatusSchema = z.enum(["success", "error"]);
 
 export const tickerMoveSchema = z.object({
   symbol: z.string(),
@@ -216,6 +218,24 @@ export const qualityEventSchema = z.object({
   createdAt: z.string()
 });
 
+export const capabilityTraceSchema = z.object({
+  id: z.string(),
+  capability: capabilityNameSchema,
+  status: capabilityStatusSchema,
+  durationMs: z.number().int().nonnegative(),
+  inputSummary: z.string().optional(),
+  outputSummary: z.string().optional(),
+  errorCode: z.string().optional(),
+  createdAt: z.string()
+});
+
+export const dailyCapabilityUsageSchema = z.object({
+  day: z.string(),
+  ragQueries: z.number().int().nonnegative(),
+  extractionRequests: z.number().int().nonnegative(),
+  imageUploads: z.number().int().nonnegative()
+});
+
 export const ragQueryRequestSchema = z.object({
   query: z.string().min(1),
   conversationHistory: z.array(z.object({
@@ -250,7 +270,8 @@ export const accountExportSchema = z.object({
   extractionCandidates: z.array(extractionCandidateSchema),
   holdings: z.array(holdingRecordSchema),
   holdingEvents: z.array(holdingEventSchema),
-  qualityEvents: z.array(qualityEventSchema)
+  qualityEvents: z.array(qualityEventSchema),
+  capabilityTraces: z.array(capabilityTraceSchema)
 });
 
 export const accountDeleteResponseSchema = z.object({
@@ -261,7 +282,8 @@ export const accountDeleteResponseSchema = z.object({
     extractionCandidates: z.number().int().nonnegative(),
     holdings: z.number().int().nonnegative(),
     holdingEvents: z.number().int().nonnegative(),
-    qualityEvents: z.number().int().nonnegative()
+    qualityEvents: z.number().int().nonnegative(),
+    capabilityTraces: z.number().int().nonnegative()
   })
 });
 
@@ -299,11 +321,7 @@ export const opsStatusSchema = z.object({
     maxUploadMb: z.number().int().positive(),
     imagePreviewExpiresInSeconds: z.number().int().positive()
   }),
-  sessionUsage: z.object({
-    ragQueries: z.number().int().nonnegative(),
-    extractionRequests: z.number().int().nonnegative(),
-    imageUploads: z.number().int().nonnegative()
-  }),
+  sessionUsage: dailyCapabilityUsageSchema.omit({ day: true }),
   privacy: z.object({
     uploadStoresOriginalImage: z.boolean(),
     signedImagePreviewOnly: z.boolean(),
@@ -329,6 +347,8 @@ export type IngestKind = z.infer<typeof ingestKindSchema>;
 export type ResearchSourceType = z.infer<typeof researchSourceTypeSchema>;
 export type ExtractionProvider = z.infer<typeof extractionProviderSchema>;
 export type ExtractionStatus = z.infer<typeof extractionStatusSchema>;
+export type CapabilityName = z.infer<typeof capabilityNameSchema>;
+export type CapabilityStatus = z.infer<typeof capabilityStatusSchema>;
 export type TickerMove = z.infer<typeof tickerMoveSchema>;
 export type HoldingSignal = z.infer<typeof holdingSignalSchema>;
 export type EvidenceItem = z.infer<typeof evidenceItemSchema>;
@@ -347,6 +367,8 @@ export type SourceItem = z.infer<typeof sourceItemSchema>;
 export type UpdateSourceRequest = z.infer<typeof updateSourceRequestSchema>;
 export type QualitySummary = z.infer<typeof qualitySummarySchema>;
 export type QualityEvent = z.infer<typeof qualityEventSchema>;
+export type CapabilityTrace = z.infer<typeof capabilityTraceSchema>;
+export type DailyCapabilityUsage = z.infer<typeof dailyCapabilityUsageSchema>;
 export type RagQueryRequest = z.infer<typeof ragQueryRequestSchema>;
 export type RagCitation = z.infer<typeof ragCitationSchema>;
 export type RagQueryResponse = z.infer<typeof ragQueryResponseSchema>;

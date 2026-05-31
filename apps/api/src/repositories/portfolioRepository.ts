@@ -15,7 +15,10 @@ import type {
   UpdateSourceRequest,
   UpdateIngestItemRequest,
   AccountExport,
-  AccountDeleteResponse
+  AccountDeleteResponse,
+  CapabilityName,
+  CapabilityTrace,
+  DailyCapabilityUsage
 } from "@pit/shared";
 
 export interface PortfolioRepository {
@@ -36,6 +39,9 @@ export interface PortfolioRepository {
   acceptIngestItem(userId: string, id: string, request: AcceptIngestItemRequest): Promise<IngestItem | undefined> | IngestItem | undefined;
   rejectIngestItem(userId: string, id: string, request: RejectIngestItemRequest): Promise<IngestItem | undefined> | IngestItem | undefined;
   updateIngestItem(userId: string, id: string, request: UpdateIngestItemRequest): Promise<IngestItem | undefined> | IngestItem | undefined;
+  getDailyCapabilityUsage(userId: string): Promise<DailyCapabilityUsage> | DailyCapabilityUsage;
+  incrementDailyCapabilityUsage(userId: string, capability: CapabilityName, limit?: number): Promise<DailyCapabilityUsage | undefined> | DailyCapabilityUsage | undefined;
+  createCapabilityTrace(userId: string, trace: Omit<CapabilityTrace, "id" | "createdAt">): Promise<CapabilityTrace> | CapabilityTrace;
   exportAccountData(userScope: string): Promise<AccountExport> | AccountExport;
   deleteAccountData(userScope: string): Promise<AccountDeleteResponse> | AccountDeleteResponse;
 }

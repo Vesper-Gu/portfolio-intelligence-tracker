@@ -28,6 +28,7 @@ import type { RagAnswerGenerator } from "./rag/llm.js";
 import { answerRagQuery } from "./rag/query.js";
 import { createMockRepository, type PortfolioRepository } from "./repository.js";
 import type { IngestImageUploader } from "./storage/supabaseStorage.js";
+import { CapabilityLimitError, CapabilityRunner } from "./harness/capabilityRunner.js";
 
 const ingestItemParamsSchema = ingestItemSchema.pick({ id: true });
 const holdingParamsSchema = holdingRecordSchema.pick({ id: true });
@@ -59,25 +60,10 @@ export function buildApp(options: BuildAppOptions = {}) {
     ? new RuleExtractionProvider()
     : options.extractionProvider ?? createExtractionProviderFromEnv(process.env);
   const ragAnswerGenerator = demoMode ? undefined : options.ragAnswerGenerator;
-  const dailyUsageByUser = new Map<string, {
-    day: string;
-    ragQueries: number;
-    extractionRequests: number;
-    imageUploads: number;
-  }>();
-  function usageFor(userId: string) {
-    const day = new Date().toISOString().slice(0, 10);
-    const current = dailyUsageByUser.get(userId);
-
-    if (current?.day === day) return current;
-
-    const next = { day, ragQueries: 0, extractionRequests: 0, imageUploads: 0 };
-    dailyUsageByUser.set(userId, next);
-    return next;
-  }
   const app = Fastify({
     logger: process.env.LOG_LEVEL ? { level: process.env.LOG_LEVEL } : false
   });
+  const capabilityRunner = new CapabilityRunner({ repository, log: app.log });
 
   void app.register(cors, {
     origin: options.corsOrigin ?? "http://127.0.0.1:5173"
@@ -153,7 +139,7 @@ export function buildApp(options: BuildAppOptions = {}) {
       maxUploadMb,
       imagePreviewExpiresInSeconds
     },
-    sessionUsage: usageFor(request.userId),
+    sessionUsage: await capabilityRunner.getDailyUsage(request.userId),
     privacy: {
       uploadStoresOriginalImage: Boolean(imageUploader),
       signedImagePreviewOnly: true,
@@ -218,22 +204,24 @@ export function buildApp(options: BuildAppOptions = {}) {
   app.get("/holding-events", async (request) => holdingEventSchema.array().parse(await repository.getHoldingEvents(request.userId)));
 
   app.post("/rag/query", async (request, reply) => {
-    const usage = usageFor(request.userId);
-    if (usage.ragQueries >= dailyLlmLimit) {
-      return reply.code(429).send({ error: "Daily RAG LLM limit reached" });
-    }
-    usage.ragQueries += 1;
-
     const body = ragQueryRequestSchema.parse(request.body);
-    const response = await answerRagQuery(
-      repository,
-      request.userId,
-      body.query,
-      body.limit,
-      ragAnswerGenerator,
-      body.conversationHistory
-    );
+    const response = await runCapabilityOrReply(reply, () => capabilityRunner.run({
+      userId: request.userId,
+      capability: "rag_query",
+      limit: dailyLlmLimit,
+      inputSummary: `queryLength=${body.query.length}; historyTurns=${body.conversationHistory?.length ?? 0}`,
+      summarizeOutput: (result) => `answerMode=${result.answerMode}; citations=${result.citations.length}`,
+      run: () => answerRagQuery(
+        repository,
+        request.userId,
+        body.query,
+        body.limit,
+        ragAnswerGenerator,
+        body.conversationHistory
+      )
+    }));
 
+    if (!response) return;
     request.log.info({ event: "rag_query_completed", userId: request.userId, answerMode: response.answerMode, citations: response.citations.length }, "RAG query completed");
     return ragQueryResponseSchema.parse(response);
   });
@@ -286,24 +274,32 @@ export function buildApp(options: BuildAppOptions = {}) {
       return reply.code(400).send({ error: "Image file is empty" });
     }
 
-    const upload = await imageUploader.uploadImage(request.userId, {
-      buffer,
-      fileName: file.filename,
-      mimeType: file.mimetype
-    });
-    usageFor(request.userId).imageUploads += 1;
-    const item = await repository.createIngestItem(request.userId, {
-      source: `storage://${upload.bucket}/${upload.objectKey}`,
-      kind: "screenshot",
-      ticker: "UNKNOWN",
-      confidence: "0.00",
-      rawText: `Image uploaded: ${file.filename} (${file.mimetype}, ${buffer.length} bytes)\nStorage object: ${upload.objectKey}`,
-      storageObjectKey: upload.objectKey,
-      fileName: file.filename,
-      mimeType: file.mimetype,
-      fileSize: buffer.length
-    });
+    const item = await runCapabilityOrReply(reply, () => capabilityRunner.run({
+      userId: request.userId,
+      capability: "image_upload",
+      inputSummary: `mimeType=${file.mimetype}; bytes=${buffer.length}`,
+      summarizeOutput: (result) => `ingestItemId=${result.id}`,
+      run: async () => {
+        const upload = await imageUploader.uploadImage(request.userId, {
+          buffer,
+          fileName: file.filename,
+          mimeType: file.mimetype
+        });
+        return repository.createIngestItem(request.userId, {
+          source: `storage://${upload.bucket}/${upload.objectKey}`,
+          kind: "screenshot",
+          ticker: "UNKNOWN",
+          confidence: "0.00",
+          rawText: `Image uploaded: ${file.filename} (${file.mimetype}, ${buffer.length} bytes)\nStorage object: ${upload.objectKey}`,
+          storageObjectKey: upload.objectKey,
+          fileName: file.filename,
+          mimeType: file.mimetype,
+          fileSize: buffer.length
+        });
+      }
+    }));
 
+    if (!item) return;
     request.log.info({ event: "ingest_image_uploaded", userId: request.userId, ingestItemId: item.id, bytes: buffer.length }, "Ingest image uploaded");
     return reply.code(201).send(ingestItemSchema.parse(item));
   });
@@ -333,12 +329,6 @@ export function buildApp(options: BuildAppOptions = {}) {
   });
 
   app.post("/ingest-items/:id/extract", async (request, reply) => {
-    const usage = usageFor(request.userId);
-    if (usage.extractionRequests >= dailyVisionLimit) {
-      return reply.code(429).send({ error: "Daily extraction limit reached" });
-    }
-    usage.extractionRequests += 1;
-
     const { id } = ingestItemParamsSchema.parse(request.params);
     const items = await repository.getIngestItems(request.userId);
     const currentItem = items.find((item) => item.id === id);
@@ -347,7 +337,16 @@ export function buildApp(options: BuildAppOptions = {}) {
       return reply.code(404).send({ error: "Ingest item not found" });
     }
 
-    const candidate = await extractionProvider.extract(currentItem);
+    const candidate = await runCapabilityOrReply(reply, () => capabilityRunner.run({
+      userId: request.userId,
+      capability: "extract_signal",
+      limit: dailyVisionLimit,
+      inputSummary: `ingestItemId=${id}; kind=${currentItem.kind}`,
+      summarizeOutput: (result) => `provider=${result.provider}; status=${result.status ?? "success"}; ticker=${result.ticker}`,
+      run: () => extractionProvider.extract(currentItem)
+    }));
+
+    if (!candidate) return;
     const status = Number(candidate.confidence) >= 0.8 ? "可接受" : "需人工确认";
     const createdAt = new Date().toISOString();
     await repository.createExtractionCandidate(request.userId, {
@@ -451,6 +450,19 @@ export function buildApp(options: BuildAppOptions = {}) {
   });
 
   return app;
+}
+
+async function runCapabilityOrReply<T>(reply: { code(statusCode: number): { send(payload: object): void } }, run: () => Promise<T>) {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof CapabilityLimitError) {
+      reply.code(429).send({ error: `Daily ${error.capability} limit reached` });
+      return undefined;
+    }
+
+    throw error;
+  }
 }
 
 declare module "fastify" {

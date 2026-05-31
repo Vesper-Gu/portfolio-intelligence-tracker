@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import {
@@ -8,6 +8,9 @@ import {
   researchSourceTypeSchema,
   signalActionSchema,
   type CreateExtractionCandidateRequest,
+  type CapabilityName,
+  type CapabilityTrace,
+  type DailyCapabilityUsage,
   type ExtractionCandidate,
   type HoldingEvent,
   type HoldingRecord,
@@ -24,12 +27,16 @@ import type {
 } from "@pit/shared";
 import {
   extractionCandidatesTable,
+  capabilityTracesTable,
+  dailyCapabilityUsageTable,
   holdingEventsTable,
   holdingsTable,
   ingestItemsTable,
   qualityEventsTable,
   sourcesTable,
   type ExtractionCandidateRow,
+  type CapabilityTraceRow,
+  type DailyCapabilityUsageRow,
   type HoldingEventRow,
   type HoldingRecordRow,
   type IngestItemRow,
@@ -268,12 +275,69 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
     return row ? mapIngestItemRow(row) : undefined;
   }
 
+  async getDailyCapabilityUsage(userId: string) {
+    const day = currentDay();
+    const [row] = await this.db
+      .select()
+      .from(dailyCapabilityUsageTable)
+      .where(and(eq(dailyCapabilityUsageTable.userId, userId), eq(dailyCapabilityUsageTable.day, day)))
+      .limit(1);
+
+    return row ? mapDailyCapabilityUsageRow(row) : emptyDailyCapabilityUsage(day);
+  }
+
+  async incrementDailyCapabilityUsage(userId: string, capability: CapabilityName, limit?: number) {
+    const day = currentDay();
+    const increments = {
+      ragQueries: capability === "rag_query" ? 1 : 0,
+      extractionRequests: capability === "extract_signal" ? 1 : 0,
+      imageUploads: capability === "image_upload" ? 1 : 0
+    };
+    const belowLimit = limit === undefined
+      ? sql`true`
+      : capability === "rag_query"
+        ? sql`${dailyCapabilityUsageTable.ragQueries} < ${limit}`
+        : capability === "extract_signal"
+          ? sql`${dailyCapabilityUsageTable.extractionRequests} < ${limit}`
+          : sql`${dailyCapabilityUsageTable.imageUploads} < ${limit}`;
+    const [row] = await this.db
+      .insert(dailyCapabilityUsageTable)
+      .values({ userId, day, ...increments })
+      .onConflictDoUpdate({
+        target: [dailyCapabilityUsageTable.userId, dailyCapabilityUsageTable.day],
+        set: {
+          ragQueries: sql`${dailyCapabilityUsageTable.ragQueries} + ${increments.ragQueries}`,
+          extractionRequests: sql`${dailyCapabilityUsageTable.extractionRequests} + ${increments.extractionRequests}`,
+          imageUploads: sql`${dailyCapabilityUsageTable.imageUploads} + ${increments.imageUploads}`,
+          updatedAt: new Date()
+        },
+        where: belowLimit
+      })
+      .returning();
+
+    return row ? mapDailyCapabilityUsageRow(row) : undefined;
+  }
+
+  async createCapabilityTrace(userId: string, trace: Omit<CapabilityTrace, "id" | "createdAt">) {
+    const [row] = await this.db
+      .insert(capabilityTracesTable)
+      .values({
+        id: `CTR-${Date.now()}-${randomUUID().slice(0, 8)}`,
+        userId,
+        ...trace
+      })
+      .returning();
+
+    return mapCapabilityTraceRow(row);
+  }
+
   async exportAccountData(userScope: string) {
-    const [ingestItems, holdings, holdingEvents, qualityEvents] = await Promise.all([
+    const [ingestItems, holdings, holdingEvents, qualityEvents, capabilityTraceRows] = await Promise.all([
       this.getIngestItems(userScope),
       this.getHoldings(userScope),
       this.getHoldingEvents(userScope),
-      this.getQualityEvents(userScope)
+      this.getQualityEvents(userScope),
+      this.db.select().from(capabilityTracesTable).where(eq(capabilityTracesTable.userId, userScope)).orderBy(desc(capabilityTracesTable.createdAt))
     ]);
     const extractionCandidateGroups = await Promise.all(
       ingestItems.map((item) => this.getExtractionCandidates(userScope, item.id))
@@ -286,7 +350,8 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
       extractionCandidates: extractionCandidateGroups.flat(),
       holdings,
       holdingEvents,
-      qualityEvents
+      qualityEvents,
+      capabilityTraces: capabilityTraceRows.map(mapCapabilityTraceRow)
     };
   }
 
@@ -298,6 +363,8 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
     await this.db.delete(holdingsTable).where(eq(holdingsTable.userId, userScope));
     await this.db.delete(ingestItemsTable).where(eq(ingestItemsTable.userId, userScope));
     await this.db.delete(qualityEventsTable).where(eq(qualityEventsTable.userId, userScope));
+    await this.db.delete(capabilityTracesTable).where(eq(capabilityTracesTable.userId, userScope));
+    await this.db.delete(dailyCapabilityUsageTable).where(eq(dailyCapabilityUsageTable.userId, userScope));
 
     return {
       deletedAt: new Date().toISOString(),
@@ -307,7 +374,8 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
         extractionCandidates: snapshot.extractionCandidates.length,
         holdings: snapshot.holdings.length,
         holdingEvents: snapshot.holdingEvents.length,
-        qualityEvents: snapshot.qualityEvents.length
+        qualityEvents: snapshot.qualityEvents.length,
+        capabilityTraces: snapshot.capabilityTraces.length
       }
     };
   }
@@ -499,4 +567,34 @@ function mapQualityEventRow(row: QualityEventRow): QualityEvent {
     metadata: row.metadata ?? undefined,
     createdAt: row.createdAt.toISOString()
   };
+}
+
+function mapCapabilityTraceRow(row: CapabilityTraceRow): CapabilityTrace {
+  return {
+    id: row.id,
+    capability: row.capability,
+    status: row.status,
+    durationMs: row.durationMs,
+    inputSummary: row.inputSummary ?? undefined,
+    outputSummary: row.outputSummary ?? undefined,
+    errorCode: row.errorCode ?? undefined,
+    createdAt: row.createdAt.toISOString()
+  };
+}
+
+function mapDailyCapabilityUsageRow(row: DailyCapabilityUsageRow): DailyCapabilityUsage {
+  return {
+    day: row.day,
+    ragQueries: row.ragQueries,
+    extractionRequests: row.extractionRequests,
+    imageUploads: row.imageUploads
+  };
+}
+
+function emptyDailyCapabilityUsage(day = currentDay()): DailyCapabilityUsage {
+  return { day, ragQueries: 0, extractionRequests: 0, imageUploads: 0 };
+}
+
+function currentDay() {
+  return new Date().toISOString().slice(0, 10);
 }

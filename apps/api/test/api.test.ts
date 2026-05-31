@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { buildApp } from "../src/app.js";
+import { createMockRepository } from "../src/repository.js";
 
 test("GET /health returns service status", async () => {
   const app = buildApp();
@@ -664,6 +665,54 @@ test("POST /rag/query falls back when LLM answer generation fails", async () => 
 
   assert.equal(response.statusCode, 200);
   assert.match(response.json().answer, /找到以下证据/);
+});
+
+test("capability harness persists daily usage and exports traces through the repository", async () => {
+  const repository = createMockRepository();
+  const app = buildApp({ repository });
+
+  await app.inject({
+    method: "POST",
+    url: "/rag/query",
+    payload: { query: "当前有哪些持仓？" }
+  });
+
+  const restartedApp = buildApp({ repository });
+  const opsResponse = await restartedApp.inject({ method: "GET", url: "/ops/status" });
+  const exportResponse = await restartedApp.inject({ method: "GET", url: "/account/export" });
+
+  assert.equal(opsResponse.statusCode, 200);
+  assert.equal(opsResponse.json().sessionUsage.ragQueries, 1);
+  assert.equal(exportResponse.statusCode, 200);
+  assert.equal(exportResponse.json().capabilityTraces.length, 1);
+  assert.equal(exportResponse.json().capabilityTraces[0].capability, "rag_query");
+  assert.equal(exportResponse.json().capabilityTraces[0].status, "success");
+});
+
+test("POST /rag/query falls back when LLM answer contains an unsupported ticker", async () => {
+  const app = buildApp({
+    ragAnswerGenerator: {
+      async generate() {
+        return "NVDA 已有资料，同时 TSLA 也值得关注。";
+      }
+    }
+  });
+  await app.inject({ method: "POST", url: "/ingest-items/ING-1024/extract" });
+  await app.inject({
+    method: "POST",
+    url: "/ingest-items/ING-1024/accept",
+    payload: { reviewer: "local-user" }
+  });
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/rag/query",
+    payload: { query: "NVDA 有哪些证据？" }
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().answerMode, "template");
+  assert.doesNotMatch(response.json().answer, /TSLA/);
 });
 
 test("POST /rag/query uses conversation history for follow-up questions", async () => {

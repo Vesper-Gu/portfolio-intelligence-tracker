@@ -10,6 +10,7 @@ import type {
 } from "@pit/shared";
 import type { PortfolioRepository } from "../repositories/portfolioRepository.js";
 import type { RagAnswerGenerator } from "./llm.js";
+import { validateGroundedAnswer } from "./groundedness.js";
 
 interface RagDocument {
   id: string;
@@ -126,10 +127,19 @@ async function generateAnswerWithFallback(
     citations: RagCitation[];
   }
 ) {
-  if (!answerGenerator) return { answer: input.deterministicAnswer, mode: "template" as const };
+  if (!answerGenerator || !input.citations.length) return { answer: input.deterministicAnswer, mode: "template" as const };
 
   try {
-    return { answer: await answerGenerator.generate(input), mode: "llm" as const };
+    const answer = await answerGenerator.generate(input);
+    const validation = validateGroundedAnswer({
+      answer,
+      contextSummary: input.contextSummary,
+      citations: input.citations
+    });
+
+    return validation.grounded
+      ? { answer, mode: "llm" as const }
+      : { answer: input.deterministicAnswer, mode: "template" as const };
   } catch {
     return { answer: input.deterministicAnswer, mode: "template" as const };
   }

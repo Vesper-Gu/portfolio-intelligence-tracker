@@ -1,5 +1,20 @@
 # 决策记录
 
+## 2026-06-01：采用受约束 Capability Harness，不引入 Agent Loop
+
+背景：文本解析、Vision 解析和 RAG + LLM 已经形成可用闭环，但模型调用的额度、耗时、错误分类和运行轨迹分散在路由与 provider 中。私有 Beta 需要在保持资料库事实边界的前提下提高可观测性和成本控制。
+
+决策：新增统一 `CapabilityRunner`，包裹 `extract_signal`、`rag_query` 和 `image_upload`。Harness 使用 PostgreSQL 持久化每日 usage 和脱敏 trace；数据库模式通过原子额度预占限制并发调用。RAG 的 LLM 输出增加 groundedness 校验，缺少 citations、出现资料库外 ticker 或外部事实/投资建议表达时回退确定性模板。
+
+暂不采用：
+
+- 开放式 Agent Loop。
+- Agent Swarm。
+- 独立微服务。
+- 允许 LLM 直接访问数据库或网络搜索。
+
+理由：当前核心任务是可靠整理和查询用户资料，不需要模型自主规划多步工具调用。先补 Harness 可以获得可观测性、成本控制和回答边界，同时保持现有单体结构简单可维护。
+
 ## 2026-05-22：总览收敛为资料库工作流首页
 
 背景：内测视角下，原总览页仍偏功能展示型 dashboard，包含 Tape、热力图、静态 RAG 证据面板等演示型模块。用户更需要每天打开后立即看到当前聚合仓位、最近变化、待处理资料和可直接提问的问题。

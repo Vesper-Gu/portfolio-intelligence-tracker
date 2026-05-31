@@ -121,6 +121,21 @@ HTTP router
 - 带 citations 的连续 RAG 问答。
 - 账户导出、账户删除与运行状态。
 
+## Capability Harness
+
+模型相关能力继续运行在单体 Fastify 服务内，不引入 Agent Loop、Swarm 或微服务。`CapabilityRunner` 统一包裹三个受控 capability：
+
+- `extract_signal`：文本、链接或截图候选解析。
+- `rag_query`：检索资料库并生成受证据约束的回答。
+- `image_upload`：私有截图上传与录入项创建。
+
+Harness 负责原子额度预占、持久化每日 usage、脱敏 trace、耗时和错误分类。trace 不保存原始正文、截图、prompt、signed URL 或密钥。RAG 的 LLM 生成结果还会经过 groundedness 校验；缺少 citations、出现资料库外 ticker 或外部事实/投资建议表达时，回退到确定性模板答案。
+
+持久化表：
+
+- `capability_traces`
+- `daily_capability_usage`
+
 ## Repository 边界
 
 `apps/api` 通过 `PortfolioRepository` 隔离路由和数据层：
@@ -156,7 +171,7 @@ SERVE_WEB=true
 
 ## Migration 与 Seed
 
-版本化 migration 位于 `apps/api/drizzle/`，包含资料持久化、候选历史、正式记录、多用户隔离/RLS，以及 `0009_source_observation_metadata.sql` 中的研究来源元数据字段。
+版本化 migration 位于 `apps/api/drizzle/`，包含资料持久化、候选历史、正式记录、多用户隔离/RLS、研究来源元数据和 Capability Harness 的 trace / usage 表。
 
 数据库脚本：
 

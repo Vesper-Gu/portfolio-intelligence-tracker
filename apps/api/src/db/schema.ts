@@ -3,6 +3,8 @@ import { index, pgEnum, pgTable, integer, primaryKey, text, timestamp, varchar }
 export const ingestKindEnum = pgEnum("ingest_kind", ["link", "text", "screenshot", "filing"]);
 export const ingestStatusEnum = pgEnum("ingest_status", ["可接受", "需人工确认", "待复核", "已接受", "已驳回", "已修改"]);
 export const extractionProviderEnum = pgEnum("extraction_provider", ["rule_v1", "deepseek_text", "ocr_stub", "vision_llm"]);
+export const capabilityNameEnum = pgEnum("capability_name", ["rag_query", "extract_signal", "image_upload"]);
+export const capabilityStatusEnum = pgEnum("capability_status", ["success", "error"]);
 
 export const sourcesTable = pgTable("sources", {
   userId: varchar("user_id", { length: 120 }).notNull(),
@@ -104,9 +106,35 @@ export const qualityEventsTable = pgTable("quality_events", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 }, (table) => [index("quality_events_user_id_idx").on(table.userId)]);
 
+export const capabilityTracesTable = pgTable("capability_traces", {
+  id: varchar("id", { length: 60 }).primaryKey(),
+  userId: varchar("user_id", { length: 120 }).notNull(),
+  capability: capabilityNameEnum("capability").notNull(),
+  status: capabilityStatusEnum("status").notNull(),
+  durationMs: integer("duration_ms").notNull(),
+  inputSummary: varchar("input_summary", { length: 240 }),
+  outputSummary: varchar("output_summary", { length: 240 }),
+  errorCode: varchar("error_code", { length: 120 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [index("capability_traces_user_id_idx").on(table.userId)]);
+
+export const dailyCapabilityUsageTable = pgTable("daily_capability_usage", {
+  userId: varchar("user_id", { length: 120 }).notNull(),
+  day: varchar("day", { length: 10 }).notNull(),
+  ragQueries: integer("rag_queries").notNull().default(0),
+  extractionRequests: integer("extraction_requests").notNull().default(0),
+  imageUploads: integer("image_uploads").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [
+  primaryKey({ columns: [table.userId, table.day] }),
+  index("daily_capability_usage_user_id_idx").on(table.userId)
+]);
+
 export type SourceRow = typeof sourcesTable.$inferSelect;
 export type IngestItemRow = typeof ingestItemsTable.$inferSelect;
 export type ExtractionCandidateRow = typeof extractionCandidatesTable.$inferSelect;
 export type HoldingRecordRow = typeof holdingsTable.$inferSelect;
 export type HoldingEventRow = typeof holdingEventsTable.$inferSelect;
 export type QualityEventRow = typeof qualityEventsTable.$inferSelect;
+export type CapabilityTraceRow = typeof capabilityTracesTable.$inferSelect;
+export type DailyCapabilityUsageRow = typeof dailyCapabilityUsageTable.$inferSelect;
