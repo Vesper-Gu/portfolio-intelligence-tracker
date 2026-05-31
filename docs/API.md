@@ -105,12 +105,22 @@ LOG_LEVEL=info
 - `capability`
 - `status`
 - `durationMs`
+- `skillName`
+- `skillVersion`
+- `provider`
+- `model`
+- `promptVersion`
+- `attemptCount`
+- `inputUnits`
+- `outputUnits`
+- `estimatedCostMicrousd`
+- `fallbackUsed`
 - `inputSummary`
 - `outputSummary`
 - `errorCode`
 - `createdAt`
 
-trace 不包含原始资料正文、图片内容、prompt、signed URL 或密钥。
+skill trace 记录的是可比较的粗粒度成本估算，不是供应商账单。trace 不包含原始资料正文、图片内容、prompt、signed URL 或密钥。
 
 ### 认证与隔离
 

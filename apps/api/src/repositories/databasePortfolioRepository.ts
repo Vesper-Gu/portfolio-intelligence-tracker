@@ -4,6 +4,7 @@ import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import {
   dashboardPayload,
   extractionProviderSchema,
+  skillNameSchema,
   qualitySummary,
   researchSourceTypeSchema,
   signalActionSchema,
@@ -324,7 +325,8 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
       .values({
         id: `CTR-${Date.now()}-${randomUUID().slice(0, 8)}`,
         userId,
-        ...trace
+        ...trace,
+        fallbackUsed: trace.fallbackUsed === undefined ? undefined : trace.fallbackUsed ? 1 : 0
       })
       .returning();
 
@@ -575,6 +577,16 @@ function mapCapabilityTraceRow(row: CapabilityTraceRow): CapabilityTrace {
     capability: row.capability,
     status: row.status,
     durationMs: row.durationMs,
+    skillName: row.skillName ? skillNameSchema.parse(row.skillName) : undefined,
+    skillVersion: row.skillVersion ?? undefined,
+    provider: row.provider ?? undefined,
+    model: row.model ?? undefined,
+    promptVersion: row.promptVersion ?? undefined,
+    attemptCount: row.attemptCount ?? undefined,
+    inputUnits: row.inputUnits ?? undefined,
+    outputUnits: row.outputUnits ?? undefined,
+    estimatedCostMicrousd: row.estimatedCostMicrousd ?? undefined,
+    fallbackUsed: row.fallbackUsed === null ? undefined : row.fallbackUsed === 1,
     inputSummary: row.inputSummary ?? undefined,
     outputSummary: row.outputSummary ?? undefined,
     errorCode: row.errorCode ?? undefined,

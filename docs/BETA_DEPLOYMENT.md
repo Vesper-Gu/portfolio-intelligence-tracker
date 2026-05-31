@@ -57,4 +57,4 @@ MOONSHOT_API_KEY
 
 ## 当前成本控制
 
-Beta 默认将截图上限限制为 `10 MB`，每日 extraction 限额为 `20`，RAG 查询限额为 `100`。额度计量保存在 `daily_capability_usage`，通过原子预占避免并发请求绕过上限，服务重启后不会清零。解析、上传和问答会向 `capability_traces` 写入脱敏运行轨迹；扩大用户范围前仍需接入告警和成本看板。
+Beta 默认将截图上限限制为 `10 MB`，每日 extraction 限额为 `20`，RAG 查询限额为 `100`。额度计量保存在 `daily_capability_usage`，通过原子预占避免并发请求绕过上限，服务重启后不会清零。解析、上传和问答会向 `capability_traces` 写入脱敏运行轨迹，包括 skill、provider、版本、有限重试次数和粗粒度估算成本；扩大用户范围前仍需接入告警和供应商账单对账。

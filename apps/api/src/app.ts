@@ -25,10 +25,14 @@ import {
 import { createExtractionProviderFromEnv, RuleExtractionProvider, type ExtractionProvider } from "./extraction/provider.js";
 import { createAuthConfiguration, type AuthMode, type AuthVerifier } from "./auth.js";
 import type { RagAnswerGenerator } from "./rag/llm.js";
-import { answerRagQuery } from "./rag/query.js";
 import { createMockRepository, type PortfolioRepository } from "./repository.js";
 import type { IngestImageUploader } from "./storage/supabaseStorage.js";
 import { CapabilityLimitError, CapabilityRunner } from "./harness/capabilityRunner.js";
+import { createSkillRegistry } from "./skills/createSkillRegistry.js";
+import { answerRagQueryWithSkills } from "./skills/ragSkills.js";
+import type { SkillRegistry } from "./skills/registry.js";
+import type { ExtractionCandidate } from "./extraction/ruleExtractor.js";
+import type { IngestItem } from "@pit/shared";
 
 const ingestItemParamsSchema = ingestItemSchema.pick({ id: true });
 const holdingParamsSchema = holdingRecordSchema.pick({ id: true });
@@ -47,6 +51,7 @@ export interface BuildAppOptions {
   ragAnswerGenerator?: RagAnswerGenerator;
   authVerifier?: AuthVerifier;
   authMode?: AuthMode;
+  skillRegistry?: SkillRegistry;
 }
 
 export function buildApp(options: BuildAppOptions = {}) {
@@ -64,6 +69,7 @@ export function buildApp(options: BuildAppOptions = {}) {
     logger: process.env.LOG_LEVEL ? { level: process.env.LOG_LEVEL } : false
   });
   const capabilityRunner = new CapabilityRunner({ repository, log: app.log });
+  const skillRegistry = options.skillRegistry ?? createSkillRegistry({ repository, extractionProvider, ragAnswerGenerator });
 
   void app.register(cors, {
     origin: options.corsOrigin ?? "http://127.0.0.1:5173"
@@ -205,21 +211,13 @@ export function buildApp(options: BuildAppOptions = {}) {
 
   app.post("/rag/query", async (request, reply) => {
     const body = ragQueryRequestSchema.parse(request.body);
-    const response = await runCapabilityOrReply(reply, () => capabilityRunner.run({
-      userId: request.userId,
-      capability: "rag_query",
-      limit: dailyLlmLimit,
-      inputSummary: `queryLength=${body.query.length}; historyTurns=${body.conversationHistory?.length ?? 0}`,
-      summarizeOutput: (result) => `answerMode=${result.answerMode}; citations=${result.citations.length}`,
-      run: () => answerRagQuery(
-        repository,
-        request.userId,
-        body.query,
-        body.limit,
-        ragAnswerGenerator,
-        body.conversationHistory
-      )
-    }));
+    const response = await runCapabilityOrReply(reply, () => answerRagQueryWithSkills(
+      capabilityRunner,
+      skillRegistry,
+      request.userId,
+      body,
+      dailyLlmLimit
+    ));
 
     if (!response) return;
     request.log.info({ event: "rag_query_completed", userId: request.userId, answerMode: response.answerMode, citations: response.citations.length }, "RAG query completed");
@@ -337,13 +335,14 @@ export function buildApp(options: BuildAppOptions = {}) {
       return reply.code(404).send({ error: "Ingest item not found" });
     }
 
-    const candidate = await runCapabilityOrReply(reply, () => capabilityRunner.run({
+    const extractionSkillName = currentItem.kind === "screenshot" ? "extract_image_signal" : "extract_text_signal";
+    const candidate = await runCapabilityOrReply(reply, () => capabilityRunner.runSkill({
       userId: request.userId,
-      capability: "extract_signal",
+      skill: skillRegistry.get<IngestItem, ExtractionCandidate>(extractionSkillName),
+      input: currentItem,
       limit: dailyVisionLimit,
       inputSummary: `ingestItemId=${id}; kind=${currentItem.kind}`,
-      summarizeOutput: (result) => `provider=${result.provider}; status=${result.status ?? "success"}; ticker=${result.ticker}`,
-      run: () => extractionProvider.extract(currentItem)
+      summarizeOutput: (result) => `provider=${result.provider}; status=${result.status ?? "success"}; ticker=${result.ticker}`
     }));
 
     if (!candidate) return;

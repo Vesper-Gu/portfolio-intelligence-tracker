@@ -10,6 +10,13 @@ export const extractionProviderSchema = z.enum(["rule_v1", "deepseek_text", "ocr
 export const extractionStatusSchema = z.enum(["success", "fallback", "error"]);
 export const capabilityNameSchema = z.enum(["rag_query", "extract_signal", "image_upload"]);
 export const capabilityStatusSchema = z.enum(["success", "error"]);
+export const skillNameSchema = z.enum([
+  "extract_text_signal",
+  "extract_image_signal",
+  "retrieve_evidence",
+  "generate_grounded_answer",
+  "validate_grounding"
+]);
 
 export const tickerMoveSchema = z.object({
   symbol: z.string(),
@@ -223,6 +230,16 @@ export const capabilityTraceSchema = z.object({
   capability: capabilityNameSchema,
   status: capabilityStatusSchema,
   durationMs: z.number().int().nonnegative(),
+  skillName: skillNameSchema.optional(),
+  skillVersion: z.string().optional(),
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  promptVersion: z.string().optional(),
+  attemptCount: z.number().int().positive().optional(),
+  inputUnits: z.number().int().nonnegative().optional(),
+  outputUnits: z.number().int().nonnegative().optional(),
+  estimatedCostMicrousd: z.number().int().nonnegative().optional(),
+  fallbackUsed: z.boolean().optional(),
   inputSummary: z.string().optional(),
   outputSummary: z.string().optional(),
   errorCode: z.string().optional(),
@@ -349,6 +366,7 @@ export type ExtractionProvider = z.infer<typeof extractionProviderSchema>;
 export type ExtractionStatus = z.infer<typeof extractionStatusSchema>;
 export type CapabilityName = z.infer<typeof capabilityNameSchema>;
 export type CapabilityStatus = z.infer<typeof capabilityStatusSchema>;
+export type SkillName = z.infer<typeof skillNameSchema>;
 export type TickerMove = z.infer<typeof tickerMoveSchema>;
 export type HoldingSignal = z.infer<typeof holdingSignalSchema>;
 export type EvidenceItem = z.infer<typeof evidenceItemSchema>;

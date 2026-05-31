@@ -1,5 +1,13 @@
 # 决策记录
 
+## 2026-06-01：将 provider 收敛为五个原子 Skill
+
+背景：第一阶段 Harness 已统一 usage、trace 和 groundedness，但路由仍直接理解 extraction 与 RAG 的执行细节，provider 版本、重试和估算成本缺少统一 contract。
+
+决策：新增 `SkillRegistry` 与 `Skill` contract，将文本解析、图片解析、RAG 检索、回答生成和 groundedness 校验拆成五个原子 skill。`CapabilityRunner` 执行 skill，统一处理超时、有限重试、脱敏 trace、provider / skill 版本和粗粒度估算成本。RAG 继续按固定流水线执行，不允许模型自主选择工具。
+
+理由：该层将 provider 替换、观测和测试边界稳定下来，同时避免在产品任务尚不需要自主规划时引入 Agent Loop 的额外复杂度。
+
 ## 2026-06-01：采用受约束 Capability Harness，不引入 Agent Loop
 
 背景：文本解析、Vision 解析和 RAG + LLM 已经形成可用闭环，但模型调用的额度、耗时、错误分类和运行轨迹分散在路由与 provider 中。私有 Beta 需要在保持资料库事实边界的前提下提高可观测性和成本控制。

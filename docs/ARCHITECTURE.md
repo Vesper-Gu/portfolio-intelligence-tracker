@@ -123,13 +123,15 @@ HTTP router
 
 ## Capability Harness
 
-模型相关能力继续运行在单体 Fastify 服务内，不引入 Agent Loop、Swarm 或微服务。`CapabilityRunner` 统一包裹三个受控 capability：
+模型相关能力继续运行在单体 Fastify 服务内，不引入 Agent Loop、Swarm 或微服务。`SkillRegistry` 注册五个原子 skill，并由 `CapabilityRunner` 统一执行：
 
-- `extract_signal`：文本、链接或截图候选解析。
-- `rag_query`：检索资料库并生成受证据约束的回答。
-- `image_upload`：私有截图上传与录入项创建。
+- `extract_text_signal`：文本或链接候选解析。
+- `extract_image_signal`：截图候选解析。
+- `retrieve_evidence`：只按当前认证用户 scope 检索资料库。
+- `generate_grounded_answer`：基于检索证据生成回答；provider 不可用时回退模板。
+- `validate_grounding`：校验 LLM 输出是否越过资料库证据边界。
 
-Harness 负责原子额度预占、持久化每日 usage、脱敏 trace、耗时和错误分类。trace 不保存原始正文、截图、prompt、signed URL 或密钥。RAG 的 LLM 生成结果还会经过 groundedness 校验；缺少 citations、出现资料库外 ticker 或外部事实/投资建议表达时，回退到确定性模板答案。
+`image_upload` 仍作为基础设施 capability 经过同一 Runner。Harness 负责原子额度预占、持久化每日 usage、脱敏 trace、超时、有限重试、provider / skill 版本、估算成本和错误分类。trace 不保存原始正文、截图、prompt、signed URL 或密钥。RAG 的 LLM 生成结果还会经过 groundedness 校验；缺少 citations、出现资料库外 ticker 或外部事实/投资建议表达时，回退到确定性模板答案。
 
 持久化表：
 
@@ -171,7 +173,7 @@ SERVE_WEB=true
 
 ## Migration 与 Seed
 
-版本化 migration 位于 `apps/api/drizzle/`，包含资料持久化、候选历史、正式记录、多用户隔离/RLS、研究来源元数据和 Capability Harness 的 trace / usage 表。
+版本化 migration 位于 `apps/api/drizzle/`，包含资料持久化、候选历史、正式记录、多用户隔离/RLS、研究来源元数据、Capability Harness 的 trace / usage 表和 skill trace 元数据。
 
 数据库脚本：
 

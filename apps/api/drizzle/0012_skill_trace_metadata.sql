@@ -1,0 +1,10 @@
+ALTER TABLE "capability_traces" ADD COLUMN "skill_name" varchar(80);
+ALTER TABLE "capability_traces" ADD COLUMN "skill_version" varchar(40);
+ALTER TABLE "capability_traces" ADD COLUMN "provider" varchar(80);
+ALTER TABLE "capability_traces" ADD COLUMN "model" varchar(120);
+ALTER TABLE "capability_traces" ADD COLUMN "prompt_version" varchar(40);
+ALTER TABLE "capability_traces" ADD COLUMN "attempt_count" integer;
+ALTER TABLE "capability_traces" ADD COLUMN "input_units" integer;
+ALTER TABLE "capability_traces" ADD COLUMN "output_units" integer;
+ALTER TABLE "capability_traces" ADD COLUMN "estimated_cost_microusd" integer;
+ALTER TABLE "capability_traces" ADD COLUMN "fallback_used" integer;

@@ -100,6 +100,49 @@ test("external auth isolates account data by verified user", async () => {
   assert.equal(userB.ingestItems.length, 0);
 });
 
+test("RAG retrieval does not expose another verified user's evidence", async () => {
+  const app = buildApp({
+    authMode: "external",
+    authVerifier: async (authorization) => {
+      if (authorization === "Bearer token-a") return "user-a";
+      if (authorization === "Bearer token-b") return "user-b";
+      throw new Error("unauthorized");
+    }
+  });
+  const userAHeaders = { authorization: "Bearer token-a" };
+  const userBHeaders = { authorization: "Bearer token-b" };
+  const created = await app.inject({
+    method: "POST",
+    url: "/ingest-items",
+    headers: userAHeaders,
+    payload: {
+      source: "private note",
+      kind: "text",
+      rawText: "NET private research",
+      ticker: "NET"
+    }
+  });
+  const ingestItemId = created.json().id;
+
+  await app.inject({ method: "POST", url: `/ingest-items/${ingestItemId}/extract`, headers: userAHeaders });
+  await app.inject({
+    method: "POST",
+    url: `/ingest-items/${ingestItemId}/accept`,
+    headers: userAHeaders,
+    payload: { reviewer: "user-a" }
+  });
+  const response = await app.inject({
+    method: "POST",
+    url: "/rag/query",
+    headers: userBHeaders,
+    payload: { query: "NET 有哪些证据？" }
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json().citations, []);
+  assert.match(response.json().answer, /没有找到 NET/);
+});
+
 test("demo auth serves synthetic positions and isolates each browser session", async () => {
   const app = buildApp({
     authMode: "demo",
@@ -684,9 +727,12 @@ test("capability harness persists daily usage and exports traces through the rep
   assert.equal(opsResponse.statusCode, 200);
   assert.equal(opsResponse.json().sessionUsage.ragQueries, 1);
   assert.equal(exportResponse.statusCode, 200);
-  assert.equal(exportResponse.json().capabilityTraces.length, 1);
-  assert.equal(exportResponse.json().capabilityTraces[0].capability, "rag_query");
-  assert.equal(exportResponse.json().capabilityTraces[0].status, "success");
+  assert.equal(exportResponse.json().capabilityTraces.length, 3);
+  assert.deepEqual(
+    exportResponse.json().capabilityTraces.map((trace: { skillName: string }) => trace.skillName),
+    ["validate_grounding", "generate_grounded_answer", "retrieve_evidence"]
+  );
+  assert.ok(exportResponse.json().capabilityTraces.every((trace: { status: string }) => trace.status === "success"));
 });
 
 test("POST /rag/query falls back when LLM answer contains an unsupported ticker", async () => {

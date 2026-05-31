@@ -36,6 +36,15 @@ interface RagContext {
   citations: RagCitation[];
 }
 
+export interface RagEvidenceBundle {
+  query: string;
+  intent: RagIntent;
+  conversationContext: string;
+  deterministicAnswer: string;
+  contextSummary: string;
+  citations: RagCitation[];
+}
+
 export async function answerRagQuery(
   repository: PortfolioRepository,
   userId: string,
@@ -44,6 +53,25 @@ export async function answerRagQuery(
   answerGenerator?: RagAnswerGenerator,
   conversationHistory: RagQueryRequest["conversationHistory"] = []
 ): Promise<RagQueryResponse> {
+  const evidence = await retrieveRagEvidence(repository, userId, query, limit, conversationHistory);
+  const answerResult = await generateAnswerWithFallback(answerGenerator, evidence);
+
+  return {
+    query,
+    answer: answerResult.answer,
+    answerMode: answerResult.mode,
+    citations: evidence.citations,
+    generatedAt: new Date().toISOString()
+  };
+}
+
+export async function retrieveRagEvidence(
+  repository: PortfolioRepository,
+  userId: string,
+  query: string,
+  limit = 6,
+  conversationHistory: RagQueryRequest["conversationHistory"] = []
+): Promise<RagEvidenceBundle> {
   const [positions, holdings, events, ingestItems] = await Promise.all([
     repository.getPortfolioPositions(userId),
     repository.getHoldings(userId),
@@ -98,34 +126,19 @@ export async function answerRagQuery(
     citations
   };
   const deterministicAnswer = buildAnswer(context);
-  const answerResult = await generateAnswerWithFallback(answerGenerator, {
+  return {
     query,
     conversationContext,
     intent,
     deterministicAnswer,
     contextSummary: buildContextSummary(scopeData(context)),
     citations
-  });
-
-  return {
-    query,
-    answer: answerResult.answer,
-    answerMode: answerResult.mode,
-    citations,
-    generatedAt: new Date().toISOString()
   };
 }
 
 async function generateAnswerWithFallback(
   answerGenerator: RagAnswerGenerator | undefined,
-  input: {
-    query: string;
-    conversationContext: string;
-    intent: RagIntent;
-    deterministicAnswer: string;
-    contextSummary: string;
-    citations: RagCitation[];
-  }
+  input: RagEvidenceBundle
 ) {
   if (!answerGenerator || !input.citations.length) return { answer: input.deterministicAnswer, mode: "template" as const };
 
