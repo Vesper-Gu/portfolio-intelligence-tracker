@@ -85,7 +85,7 @@ Demo 为保护访客数据而刻意限制了能力：
 | AI extraction 候选与人工确认 | 已实现；默认可用规则解析，支持外部模型配置 |
 | 标的聚合、事件变化与来源倾向矩阵 | 已实现 |
 | 证据详情与短期图片预览 | 已实现；图片能力仅在私有配置中启用 |
-| 连续 RAG 对话与引用列表 | 已实现；LLM 为可选服务端集成 |
+| 连续 RAG 对话与引用列表 | 已实现；数据库过滤、批量查询与可选 pgvector 混合检索 |
 | Skills Registry、Capability Harness 与持久化额度 | 已实现；五个原子 skill 统一记录脱敏 trace、重试次数和估算成本 |
 | Supabase Auth、用户隔离与 RLS migration | 已实现 |
 | 账户数据导出与删除 | 已实现 |
@@ -100,7 +100,7 @@ React + Vite Web App
 Fastify API  -----> Skills Registry -----> Capability Harness -----> controlled providers
         |              |                         |
         |              +---- extraction ---------+---- optional text / Vision LLM
-        |              +---- RAG pipeline -------+---- retrieve / generate / validate
+        |              +---- RAG pipeline -------+---- filtered retrieve / optional pgvector / generate / validate
         v
 Repository interface
    |                    |

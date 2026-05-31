@@ -1,5 +1,13 @@
 # 决策记录
 
+## 2026-06-01：RAG 增加独立 Retrieval 边界与可选 pgvector 混合检索
+
+背景：早期 RAG 查询会读取当前用户全部结构化资料，并按每条 ingest item 单独查询候选历史。资料量扩大后会形成不必要的全量读取和 N+1 查询。
+
+决策：新增 `RagRetrievalRepository`，数据库实现优先下推用户 scope、ticker 和窗口过滤，并批量读取候选历史。新增默认关闭的 `PgvectorHybridRetriever`：只对过滤后的候选文档按指纹增量建立 embedding 索引，并将向量相似度与关键词分数合并；provider 失败时回退关键词检索。
+
+理由：先缩小结构化候选集，再做向量增强，可以控制隐私暴露面、延迟和 embedding 成本，同时保持无模型 key 的默认路径可用。
+
 ## 2026-06-01：将 provider 收敛为五个原子 Skill
 
 背景：第一阶段 Harness 已统一 usage、trace 和 groundedness，但路由仍直接理解 extraction 与 RAG 的执行细节，provider 版本、重试和估算成本缺少统一 contract。

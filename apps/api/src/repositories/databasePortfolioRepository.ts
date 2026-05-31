@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import {
@@ -47,6 +47,7 @@ import {
 import { createDatabase } from "../db/connection.js";
 import type { PortfolioRepository } from "./portfolioRepository.js";
 import { buildEvidenceDashboard, buildPortfolioPositions } from "../portfolio/positions.js";
+import type { RagRetrievalRequest } from "../rag/retrieval.js";
 
 export interface DatabaseRepositoryOptions {
   databaseUrl: string;
@@ -189,6 +190,69 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
       .orderBy(desc(extractionCandidatesTable.createdAt));
 
     return rows.map(mapExtractionCandidateRow);
+  }
+
+  async getExtractionCandidatesByIngestItemIds(userId: string, ingestItemIds: string[]) {
+    if (!ingestItemIds.length) return [];
+
+    const rows = await this.db
+      .select()
+      .from(extractionCandidatesTable)
+      .where(and(
+        eq(extractionCandidatesTable.userId, userId),
+        inArray(extractionCandidatesTable.ingestItemId, ingestItemIds)
+      ))
+      .orderBy(desc(extractionCandidatesTable.createdAt));
+
+    return rows.map(mapExtractionCandidateRow);
+  }
+
+  async getRagRetrievalSnapshot(request: RagRetrievalRequest) {
+    const maxRows = Math.max(request.limit * 8, 40);
+    const tickers = request.tickers.map((ticker) => ticker.toUpperCase());
+    const holdingsFilter = tickers.length
+      ? and(eq(holdingsTable.userId, request.userId), inArray(holdingsTable.ticker, tickers))
+      : eq(holdingsTable.userId, request.userId);
+    const eventsFilter = tickers.length
+      ? and(eq(holdingEventsTable.userId, request.userId), inArray(holdingEventsTable.ticker, tickers))
+      : eq(holdingEventsTable.userId, request.userId);
+    const [holdingRows, eventRows] = await Promise.all([
+      this.db.select().from(holdingsTable).where(holdingsFilter).orderBy(desc(holdingsTable.updatedAt)).limit(maxRows),
+      this.db.select().from(holdingEventsTable).where(eventsFilter).orderBy(desc(holdingEventsTable.createdAt)).limit(maxRows)
+    ]);
+    const linkedIngestIds = [
+      ...holdingRows.map((holding) => holding.sourceIngestItemId),
+      ...eventRows.map((event) => event.ingestItemId)
+    ];
+    const ingestFilter = tickers.length
+      ? and(
+        eq(ingestItemsTable.userId, request.userId),
+        linkedIngestIds.length
+          ? or(inArray(ingestItemsTable.ticker, tickers), inArray(ingestItemsTable.id, linkedIngestIds))
+          : inArray(ingestItemsTable.ticker, tickers)
+      )
+      : eq(ingestItemsTable.userId, request.userId);
+    const ingestRows = await this.db
+      .select()
+      .from(ingestItemsTable)
+      .where(ingestFilter)
+      .orderBy(desc(ingestItemsTable.createdAt))
+      .limit(maxRows);
+    const holdings = holdingRows.map(mapHoldingRecordRow);
+    const events = eventRows.map(mapHoldingEventRow);
+    const ingestItems = ingestRows.map(mapIngestItemRow);
+    const candidates = await this.getExtractionCandidatesByIngestItemIds(
+      request.userId,
+      ingestItems.map((item) => item.id)
+    );
+
+    return {
+      positions: buildPortfolioPositions(holdings, events),
+      holdings,
+      events,
+      ingestItems,
+      candidates
+    };
   }
 
   async createExtractionCandidate(userId: string, request: CreateExtractionCandidateRequest) {
@@ -341,15 +405,16 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
       this.getQualityEvents(userScope),
       this.db.select().from(capabilityTracesTable).where(eq(capabilityTracesTable.userId, userScope)).orderBy(desc(capabilityTracesTable.createdAt))
     ]);
-    const extractionCandidateGroups = await Promise.all(
-      ingestItems.map((item) => this.getExtractionCandidates(userScope, item.id))
+    const extractionCandidates = await this.getExtractionCandidatesByIngestItemIds(
+      userScope,
+      ingestItems.map((item) => item.id)
     );
 
     return {
       exportedAt: new Date().toISOString(),
       userScope,
       ingestItems,
-      extractionCandidates: extractionCandidateGroups.flat(),
+      extractionCandidates,
       holdings,
       holdingEvents,
       qualityEvents,
@@ -367,6 +432,7 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
     await this.db.delete(qualityEventsTable).where(eq(qualityEventsTable.userId, userScope));
     await this.db.delete(capabilityTracesTable).where(eq(capabilityTracesTable.userId, userScope));
     await this.db.delete(dailyCapabilityUsageTable).where(eq(dailyCapabilityUsageTable.userId, userScope));
+    await this.db.execute(sql`DELETE FROM "rag_document_embeddings" WHERE "user_id" = ${userScope}`);
 
     return {
       deletedAt: new Date().toISOString(),

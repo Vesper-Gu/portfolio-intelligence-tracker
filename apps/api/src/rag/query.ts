@@ -11,17 +11,18 @@ import type {
 import type { PortfolioRepository } from "../repositories/portfolioRepository.js";
 import type { RagAnswerGenerator } from "./llm.js";
 import { validateGroundedAnswer } from "./groundedness.js";
+import {
+  createPortfolioRagRetrievalRepository,
+  type RagIntent,
+  type RagRetrievalRepository,
+  type RagVectorDocument,
+  type RagVectorRetriever
+} from "./retrieval.js";
+export type { RagIntent } from "./retrieval.js";
 
-interface RagDocument {
-  id: string;
+interface RagDocument extends RagVectorDocument {
   entityType: RagCitation["entityType"];
-  entityId: string;
-  sourceIngestItemId?: string;
-  title: string;
-  text: string;
 }
-
-export type RagIntent = "position_summary" | "evidence" | "risk" | "recent_changes" | "source_trace" | "overview";
 
 interface RagContext {
   query: string;
@@ -43,6 +44,7 @@ export interface RagEvidenceBundle {
   deterministicAnswer: string;
   contextSummary: string;
   citations: RagCitation[];
+  retrievalMode: "keyword" | "hybrid";
 }
 
 export async function answerRagQuery(
@@ -70,23 +72,40 @@ export async function retrieveRagEvidence(
   userId: string,
   query: string,
   limit = 6,
-  conversationHistory: RagQueryRequest["conversationHistory"] = []
+  conversationHistory: RagQueryRequest["conversationHistory"] = [],
+  vectorRetriever?: RagVectorRetriever
 ): Promise<RagEvidenceBundle> {
-  const [positions, holdings, events, ingestItems] = await Promise.all([
-    repository.getPortfolioPositions(userId),
-    repository.getHoldings(userId),
-    repository.getHoldingEvents(userId),
-    repository.getIngestItems(userId)
-  ]);
-  const candidateGroups = await Promise.all(
-    ingestItems.map(async (item) => repository.getExtractionCandidates(userId, item.id))
+  return retrieveRagEvidenceFromRepository(
+    createPortfolioRagRetrievalRepository(repository),
+    userId,
+    query,
+    limit,
+    conversationHistory,
+    vectorRetriever
   );
-  const candidates = candidateGroups.flat();
+}
+
+export async function retrieveRagEvidenceFromRepository(
+  retrievalRepository: RagRetrievalRepository,
+  userId: string,
+  query: string,
+  limit = 6,
+  conversationHistory: RagQueryRequest["conversationHistory"] = [],
+  vectorRetriever?: RagVectorRetriever
+): Promise<RagEvidenceBundle> {
   const conversationContext = summarizeConversation(conversationHistory);
   const retrievalQuery = buildRetrievalQuery(query, conversationHistory);
+  const intent = classifyIntent(retrievalQuery);
+  const requestedTickers = extractRequestedTickerTokens(retrievalQuery);
+  const { positions, holdings, events, ingestItems, candidates } = await retrievalRepository.retrieveSnapshot({
+    userId,
+    query: retrievalQuery,
+    intent,
+    tickers: requestedTickers,
+    limit
+  });
   const scopedTickers = extractScopedTickers(retrievalQuery, positions, holdings, events, ingestItems, candidates);
   const unknownTickers = extractUnknownTickerTokens(query, scopedTickers);
-  const intent = classifyIntent(retrievalQuery);
   const documents = [
     ...positions.map((position) => positionToDocument(position, holdings)),
     ...holdings.map(holdingToDocument),
@@ -95,10 +114,11 @@ export async function retrieveRagEvidence(
     ...candidates.map(candidateToDocument)
   ];
   const tokens = tokenize(retrievalQuery);
+  const vectorScores = await loadVectorScores(vectorRetriever, userId, retrievalQuery, documents, limit);
   const scored = documents
     .map((document) => ({
       document,
-      score: scoreDocument(document, tokens, scopedTickers, intent)
+      score: scoreDocument(document, tokens, scopedTickers, intent) + (vectorScores.get(document.id) ?? 0) * 4
     }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)
@@ -132,8 +152,26 @@ export async function retrieveRagEvidence(
     intent,
     deterministicAnswer,
     contextSummary: buildContextSummary(scopeData(context)),
-    citations
+    citations,
+    retrievalMode: vectorScores.size ? "hybrid" : "keyword"
   };
+}
+
+async function loadVectorScores(
+  vectorRetriever: RagVectorRetriever | undefined,
+  userId: string,
+  query: string,
+  documents: RagDocument[],
+  limit: number
+) {
+  if (!vectorRetriever || !documents.length) return new Map<string, number>();
+
+  try {
+    const matches = await vectorRetriever.search(userId, query, documents, limit);
+    return new Map(matches.map((match) => [match.documentId, match.score]));
+  } catch {
+    return new Map<string, number>();
+  }
 }
 
 async function generateAnswerWithFallback(
@@ -458,6 +496,13 @@ function extractUnknownTickerTokens(query: string, scopedTickers: string[]) {
   return [...new Set(tokens.filter((token) => !known.has(token) && !ignored.has(token)))];
 }
 
+function extractRequestedTickerTokens(query: string) {
+  const ignored = new Set(["RAG", "API", "OCR", "SEC", "URL", "LLM", "AI", "KOL", "ETF"]);
+  const tokens = query.toUpperCase().match(/\b[A-Z]{2,5}(?:\.[A-Z]{2})?\b/g) ?? [];
+
+  return [...new Set(tokens.filter((token) => !ignored.has(token)))];
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("zh-CN", {
     month: "2-digit",
@@ -477,6 +522,7 @@ function positionToDocument(position: PortfolioPosition, holdings: HoldingRecord
     id: `RAG-POS-${position.ticker}`,
     entityType: "position",
     entityId: position.ticker,
+    ticker: position.ticker,
     sourceIngestItemId: sourceHolding?.sourceIngestItemId,
     title: `Position ${position.ticker}`,
     text: [
@@ -494,6 +540,7 @@ function holdingToDocument(holding: HoldingRecord): RagDocument {
     id: `RAG-HLD-${holding.id}`,
     entityType: "holding",
     entityId: holding.id,
+    ticker: holding.ticker,
     sourceIngestItemId: holding.sourceIngestItemId,
     title: `Holding ${holding.ticker}`,
     text: [
@@ -514,6 +561,7 @@ function eventToDocument(event: HoldingEvent): RagDocument {
     id: `RAG-HEV-${event.id}`,
     entityType: "holding_event",
     entityId: event.id,
+    ticker: event.ticker,
     sourceIngestItemId: event.ingestItemId,
     title: `Accepted Event ${event.ticker}`,
     text: [
@@ -530,6 +578,7 @@ function ingestItemToDocument(item: IngestItem): RagDocument {
     id: `RAG-ING-${item.id}`,
     entityType: "ingest_item",
     entityId: item.id,
+    ticker: item.ticker,
     sourceIngestItemId: item.id,
     title: `Source ${item.ticker} ${item.id}`,
     text: [
@@ -551,6 +600,7 @@ function candidateToDocument(candidate: ExtractionCandidate): RagDocument {
     id: `RAG-EXT-${candidate.id}`,
     entityType: "extraction_candidate",
     entityId: candidate.id,
+    ticker: candidate.ticker,
     sourceIngestItemId: candidate.ingestItemId,
     title: `Candidate ${candidate.ticker} ${candidate.provider}`,
     text: [

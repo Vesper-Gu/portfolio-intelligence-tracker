@@ -327,6 +327,11 @@ export const opsStatusSchema = z.object({
       provider: z.string(),
       model: z.string()
     }),
+    ragVectorRetrieval: z.object({
+      configured: z.boolean(),
+      provider: z.string(),
+      model: z.string()
+    }),
     storage: z.object({
       configured: z.boolean(),
       bucket: z.string()

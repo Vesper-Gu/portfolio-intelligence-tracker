@@ -135,6 +135,10 @@ export function createMockRepository(): PortfolioRepository {
     getExtractionCandidates(userId, ingestItemId) {
       return stateFor(userId).extractionCandidates.filter((candidate) => candidate.ingestItemId === ingestItemId);
     },
+    getExtractionCandidatesByIngestItemIds(userId, ingestItemIds) {
+      const ids = new Set(ingestItemIds);
+      return stateFor(userId).extractionCandidates.filter((candidate) => ids.has(candidate.ingestItemId));
+    },
     createExtractionCandidate(userId, request: CreateExtractionCandidateRequest) {
       const state = stateFor(userId);
       const candidate: ExtractionCandidate = {

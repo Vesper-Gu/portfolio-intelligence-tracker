@@ -133,6 +133,12 @@ HTTP router
 
 `image_upload` 仍作为基础设施 capability 经过同一 Runner。Harness 负责原子额度预占、持久化每日 usage、脱敏 trace、超时、有限重试、provider / skill 版本、估算成本和错误分类。trace 不保存原始正文、截图、prompt、signed URL 或密钥。RAG 的 LLM 生成结果还会经过 groundedness 校验；缺少 citations、出现资料库外 ticker 或外部事实/投资建议表达时，回退到确定性模板答案。
 
+### Retrieval 边界
+
+RAG 不再直接调用通用 `PortfolioRepository` 的全量读取接口，而是通过独立 `RagRetrievalRepository` 获取检索快照。数据库实现先将用户 scope、ticker 和候选窗口过滤下推到 PostgreSQL，再批量读取 extraction candidates，避免按录入项逐条查询。
+
+可选 `PgvectorHybridRetriever` 只处理结构化过滤后的文档集合。启用后，系统按文档指纹增量生成 embedding，并将 pgvector 相似度分数与关键词分数合并；embedding provider 或向量查询失败时自动回退关键词检索。默认不开启该能力。
+
 持久化表：
 
 - `capability_traces`
@@ -173,7 +179,7 @@ SERVE_WEB=true
 
 ## Migration 与 Seed
 
-版本化 migration 位于 `apps/api/drizzle/`，包含资料持久化、候选历史、正式记录、多用户隔离/RLS、研究来源元数据、Capability Harness 的 trace / usage 表和 skill trace 元数据。
+版本化 migration 位于 `apps/api/drizzle/`，包含资料持久化、候选历史、正式记录、多用户隔离/RLS、研究来源元数据、Capability Harness 的 trace / usage 表、skill trace 元数据和 pgvector 文档索引。
 
 数据库脚本：
 

@@ -80,6 +80,7 @@ portfolio-intelligence-tracker/
 - 未配置模型 key 时，文本解析与问答使用确定性 fallback，项目仍可在本地运行。
 - 文本资料可选 DeepSeek-compatible extraction provider；截图可选 Kimi-compatible Vision provider。
 - RAG 先从当前用户已确认记录检索 evidence，再可选调用 OpenAI-compatible LLM 组织回答。
+- 检索层通过独立 interface 下推数据库过滤和批量查询；可选使用 pgvector 对过滤后的候选文档做混合召回。
 - LLM prompt 明确限制回答范围，不补充资料库外事实、实时行情或投资建议。
 - citations 包含原始资料映射，用户可从回答返回证据详情核验内容。
 

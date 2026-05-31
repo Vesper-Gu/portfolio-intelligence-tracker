@@ -17,7 +17,10 @@ const ignoredUppercaseTerms = new Set(["AI", "API", "OCR", "SEC", "URL", "PNG", 
 
 export function extractIngestCandidate(item: IngestItem): ExtractionCandidate {
   const corpus = `${item.source}\n${item.fileName ?? ""}\n${item.rawText}`.toUpperCase();
-  const ticker = findTicker(corpus) ?? item.extractedTicker ?? (item.ticker !== "UNKNOWN" ? item.ticker : "UNKNOWN");
+  const ticker = findKnownTicker(corpus)
+    ?? item.extractedTicker
+    ?? (item.ticker !== "UNKNOWN" ? item.ticker : findTicker(corpus))
+    ?? "UNKNOWN";
   const action = inferAction(corpus);
   const confidence = inferConfidence(item, ticker, action);
   const summary = buildSummary(item, ticker, action, confidence);
@@ -35,7 +38,7 @@ export function extractIngestCandidate(item: IngestItem): ExtractionCandidate {
 }
 
 function findTicker(corpus: string) {
-  const known = knownTickers.find((ticker) => corpus.includes(ticker));
+  const known = findKnownTicker(corpus);
 
   if (known) {
     return known;
@@ -43,6 +46,10 @@ function findTicker(corpus: string) {
 
   const candidates = corpus.match(/\b[A-Z]{2,5}(?:\.[A-Z]{2})?\b/g) ?? [];
   return candidates.find((candidate) => !ignoredUppercaseTerms.has(candidate));
+}
+
+function findKnownTicker(corpus: string) {
+  return knownTickers.find((ticker) => corpus.includes(ticker));
 }
 
 function inferAction(corpus: string): SignalAction {

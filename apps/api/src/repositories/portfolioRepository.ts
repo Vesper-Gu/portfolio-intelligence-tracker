@@ -20,6 +20,7 @@ import type {
   CapabilityTrace,
   DailyCapabilityUsage
 } from "@pit/shared";
+import type { RagRetrievalRequest, RagRetrievalSnapshot } from "../rag/retrieval.js";
 
 export interface PortfolioRepository {
   getDashboard(userId: string): Promise<DashboardPayload> | DashboardPayload;
@@ -34,6 +35,8 @@ export interface PortfolioRepository {
   restoreHolding(userId: string, id: string): Promise<HoldingRecord | undefined> | HoldingRecord | undefined;
   getHoldingEvents(userId: string): Promise<HoldingEvent[]> | HoldingEvent[];
   getExtractionCandidates(userId: string, ingestItemId: string): Promise<ExtractionCandidate[]> | ExtractionCandidate[];
+  getExtractionCandidatesByIngestItemIds?(userId: string, ingestItemIds: string[]): Promise<ExtractionCandidate[]> | ExtractionCandidate[];
+  getRagRetrievalSnapshot?(request: RagRetrievalRequest): Promise<RagRetrievalSnapshot> | RagRetrievalSnapshot;
   createExtractionCandidate(userId: string, request: CreateExtractionCandidateRequest): Promise<ExtractionCandidate> | ExtractionCandidate;
   createIngestItem(userId: string, request: CreateIngestItemRequest): Promise<IngestItem> | IngestItem;
   acceptIngestItem(userId: string, id: string, request: AcceptIngestItemRequest): Promise<IngestItem | undefined> | IngestItem | undefined;

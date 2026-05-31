@@ -1,8 +1,8 @@
 import type { RagQueryRequest, RagQueryResponse } from "@pit/shared";
-import type { PortfolioRepository } from "../repositories/portfolioRepository.js";
 import { validateGroundedAnswer, type GroundednessResult } from "../rag/groundedness.js";
 import type { RagAnswerGenerator } from "../rag/llm.js";
-import { retrieveRagEvidence, type RagEvidenceBundle } from "../rag/query.js";
+import { retrieveRagEvidenceFromRepository, type RagEvidenceBundle } from "../rag/query.js";
+import type { RagRetrievalRepository, RagVectorRetriever } from "../rag/retrieval.js";
 import type { CapabilityRunner } from "../harness/capabilityRunner.js";
 import type { SkillRegistry } from "./registry.js";
 import type { Skill, SkillResult } from "./types.js";
@@ -29,21 +29,25 @@ export class RetrieveEvidenceSkill implements Skill<RetrieveEvidenceInput, RagEv
   readonly capability = "rag_query" as const;
   readonly timeoutMs = 10_000;
 
-  constructor(private readonly repository: PortfolioRepository) {}
+  constructor(
+    private readonly retrievalRepository: RagRetrievalRepository,
+    private readonly vectorRetriever?: RagVectorRetriever
+  ) {}
 
   async execute(input: RetrieveEvidenceInput, context: { userId: string }) {
-    const value = await retrieveRagEvidence(
-      this.repository,
+    const value = await retrieveRagEvidenceFromRepository(
+      this.retrievalRepository,
       context.userId,
       input.query,
       input.limit,
-      input.conversationHistory
+      input.conversationHistory,
+      this.vectorRetriever
     );
     return {
       value,
       diagnostics: {
-        provider: "repository_keyword_retrieval",
-        model: "deterministic-v1",
+        provider: value.retrievalMode === "hybrid" ? "pgvector_hybrid_retrieval" : "repository_keyword_retrieval",
+        model: value.retrievalMode === "hybrid" ? "pgvector-v1" : "deterministic-v1",
         inputUnits: input.query.length,
         outputUnits: value.citations.length,
         estimatedCostMicrousd: 0

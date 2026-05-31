@@ -134,6 +134,11 @@ export function buildApp(options: BuildAppOptions = {}) {
         provider: process.env.RAG_LLM_BASE_URL || process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
         model: process.env.RAG_LLM_MODEL || process.env.DEEPSEEK_MODEL || "deepseek-v4-flash"
       },
+      ragVectorRetrieval: {
+        configured: !demoMode && process.env.RAG_VECTOR_RETRIEVAL === "true" && Boolean(process.env.RAG_EMBEDDING_API_KEY),
+        provider: process.env.RAG_EMBEDDING_BASE_URL || "https://api.openai.com/v1",
+        model: process.env.RAG_EMBEDDING_MODEL || "text-embedding-3-small"
+      },
       storage: {
         configured: Boolean(imageUploader),
         bucket: imageUploader ? process.env.SUPABASE_STORAGE_BUCKET || "configured" : "not-configured"

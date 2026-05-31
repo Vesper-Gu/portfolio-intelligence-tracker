@@ -44,11 +44,20 @@ RAG_LLM_API_KEY
 MOONSHOT_API_KEY
 ```
 
+pgvector 混合检索默认关闭。需要单独验证 embedding 数据出境、成本和延迟后再配置：
+
+```text
+RAG_VECTOR_RETRIEVAL=true
+RAG_EMBEDDING_API_KEY
+RAG_EMBEDDING_BASE_URL
+RAG_EMBEDDING_MODEL
+```
+
 `VITE_SUPABASE_URL` 与 `VITE_SUPABASE_ANON_KEY` 会进入浏览器构建产物，只能填写 Supabase 允许公开的 URL 与 publishable/anon key，不能填写 service-role key。
 
 ## 上线前验证
 
-1. 执行全部数据库 migrations，并确认资料表已启用 RLS。
+1. 执行全部数据库 migrations，并确认资料表及 `rag_document_embeddings` 已启用 RLS。
 2. 确认 `ingest-uploads` 为私有 bucket，限制文件大小和图片 MIME 类型。
 3. 建立授权登录账户，关闭不需要的公共注册入口。
 4. 以已登录账户验证文本录入、截图上传、图片预览、人工确认、资料库查询、导出和删除。

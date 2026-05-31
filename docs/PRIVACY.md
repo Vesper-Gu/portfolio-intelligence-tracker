@@ -20,6 +20,7 @@
 - 启用 DeepSeek 文本解析时，相关文本会发送给配置的 DeepSeek-compatible API。
 - 启用 Kimi Vision 时，截图内容会发送给配置的 Moonshot/Kimi-compatible API。
 - 启用 RAG LLM 时，系统只发送检索命中的资料库上下文和问题，不发送完整数据库。
+- 启用 pgvector 混合检索时，系统只向 embedding provider 发送结构化过滤后的候选文档；生成的 embedding 和文档索引按 `user_id` 隔离存储，并随账户删除清理。
 - Storage object path、上传字节数和 reviewer note 等运维元数据只用于后端处理，不作为问答或解析提示词内容发送给模型服务商。
 
 ## 不会做什么
