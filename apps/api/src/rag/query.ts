@@ -345,33 +345,43 @@ function buildPositionSummaryAnswer(scoped: ReturnType<typeof scopeData>, citati
       ? `${position.eventCount} 条已确认事件`
       : `${position.sourceCount} 个来源`;
 
-    return `${position.ticker} 目前是${position.netStance}，最新记录是“${position.latestAction}”，依据是 ${basis}。`;
+    return `${position.ticker}：当前资料倾向为${position.netStance}，最新动作是“${position.latestAction}”。这个判断来自 ${basis}，覆盖 ${position.sources.slice(0, 3).join("、") || "已确认资料"}。`;
   });
   const fallbackLines = scoped.holdings.slice(0, 4).map((holding) => (
-    `${holding.ticker} 有一条已确认记录，最新动作是“${holding.lastAction}”，来源记录是 ${holding.sourceIngestItemId}。`
+    `${holding.ticker}：已有一条确认资料，动作是“${holding.lastAction}”，来源为 ${displaySource(holding.source, holding.sourceName)}。`
   ));
   const sourceLine = citations.length
-    ? `可回溯的资料包括 ${citations.slice(0, 4).map((citation) => citation.title).join("、")}。`
+    ? "可以继续查看下方证据卡片，核对原始资料和确认记录。"
     : "当前没有命中可引用证据，建议先补充或接受更多资料。";
 
   return [
-    "从已存入并确认的资料看：",
+    "结论：",
     ...(lines.length ? lines : fallbackLines),
+    "",
+    "依据：",
     sourceLine
   ].join("\n");
 }
 
 function buildEvidenceAnswer(scoped: ReturnType<typeof scopeData>, citations: RagCitation[]) {
   const evidenceLines = [
-    ...scoped.ingestItems.slice(0, 4).map((item) => `来源 ${item.id}：${summarize(textForAnswerLayer(item.rawText))}`),
-    ...scoped.events.slice(0, 3).map((event) => `确认事件 ${event.id}：${event.summary}`)
+    ...scoped.ingestItems.slice(0, 4).map((item) => {
+      const meta = [
+        item.ticker,
+        displaySource(item.source, item.sourceName),
+        item.publishedAt ? formatDate(item.publishedAt) : undefined
+      ].filter(Boolean).join(" · ");
+
+      return `- ${meta}：${summarize(textForAnswerLayer(item.rawText))}`;
+    }),
+    ...scoped.events.slice(0, 3).map((event) => `- ${event.ticker} · 已确认${event.action}：${event.summary}`)
   ];
   const citationLine = citations.length
-    ? `引用列表：${citations.slice(0, 5).map((citation) => citation.title).join("；")}。`
+    ? "原始资料和结构化记录已放在下方证据卡片中，方便逐条追溯。"
     : "当前没有额外引用命中。";
 
   return evidenceLines.length
-    ? [`找到以下证据：`, ...evidenceLines, citationLine].join("\n")
+    ? ["找到以下证据：", ...evidenceLines, "", citationLine].join("\n")
     : "当前资料中没有找到可展示的来源证据。";
 }
 
@@ -379,35 +389,35 @@ function buildRiskAnswer(scoped: ReturnType<typeof scopeData>, citations: RagCit
   const riskyEvents = scoped.events.filter((event) => event.action === "风险" || event.action === "减仓");
   const riskyItems = scoped.ingestItems.filter((item) => /(风险|减仓|SELL|SOLD|REDUCE|TRIM|RISK|CONFLICT|冲突)/i.test(item.rawText));
   const lines = [
-    ...riskyEvents.map((event) => `${event.ticker} 有 ${event.action} 事件：${event.summary}`),
-    ...riskyItems.map((item) => `${item.ticker} 来源记录需要复核：${summarize(textForAnswerLayer(item.rawText))}`)
+    ...riskyEvents.map((event) => `- ${event.ticker}：已确认“${event.action}”信号。${event.summary}`),
+    ...riskyItems.map((item) => `- ${item.ticker}：${displaySource(item.source, item.sourceName)} 中出现需要复核的表述。${summarize(textForAnswerLayer(item.rawText))}`)
   ];
 
   if (!lines.length) {
     return scoped.positions.length || scoped.holdings.length
-      ? "当前已存资料中没有看到明确的风险、减仓或冲突信号。"
+      ? "结论：当前已确认资料里，没有看到明确的风险、减仓或冲突信号。\n\n建议：如果你关注某个标的，可以继续追问“某某有哪些风险证据”。"
       : "当前资料中没有找到风险相关记录。";
   }
 
   const citationLine = citations.length
-    ? `相关证据：${citations.slice(0, 4).map((citation) => citation.title).join("；")}。`
+    ? "建议打开下方证据卡片，重点核对原文语气、时间和来源。"
     : "建议继续打开来源记录复核原文。";
 
-  return ["当前看到以下风险线索：", ...lines.slice(0, 6), citationLine].join("\n");
+  return ["结论：当前看到以下风险线索。", "", ...lines.slice(0, 6), "", citationLine].join("\n");
 }
 
 function buildRecentChangesAnswer(scoped: ReturnType<typeof scopeData>) {
   const sortedEvents = [...scoped.events].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const sortedHoldings = [...scoped.holdings].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const lines = sortedEvents.slice(0, 5).map((event) => (
-    `${event.ticker} 在 ${formatDate(event.createdAt)} 记录为 ${event.action}：${event.summary}`
+    `- ${formatDate(event.createdAt)} · ${event.ticker}：${event.action}。${event.summary}`
   ));
 
-  if (lines.length) return ["最近变化：", ...lines].join("\n");
+  if (lines.length) return ["最近变化：", ...lines, "", "这些变化只来自已确认资料，不包含外部实时信息。"].join("\n");
 
   return sortedHoldings.length
     ? ["最近已确认记录：", ...sortedHoldings.slice(0, 5).map((holding) => (
-      `${holding.ticker} 最新动作 ${holding.lastAction}，更新时间 ${formatDate(holding.updatedAt)}。`
+      `- ${formatDate(holding.updatedAt)} · ${holding.ticker}：${holding.lastAction}，来源 ${displaySource(holding.source, holding.sourceName)}。`
     ))].join("\n")
     : "当前资料中没有找到最近变化记录。";
 }
@@ -416,25 +426,25 @@ function buildSourceTraceAnswer(scoped: ReturnType<typeof scopeData>) {
   const lines = scoped.ingestItems.slice(0, 5).map((item) => {
     const candidates = scoped.candidates.filter((candidate) => candidate.ingestItemId === item.id);
     const latestCandidate = candidates[0]
-      ? `最近候选为 ${candidates[0].ticker} / ${candidates[0].action}（${candidates[0].provider}）。`
-      : "暂无候选历史。";
+      ? `AI 曾提取为 ${candidates[0].ticker} / ${candidates[0].action}，当前状态是 ${item.status}。`
+      : `当前状态是 ${item.status}。`;
 
-    return `${item.id} 来自 ${displaySource(item.source, item.sourceName)}，类型 ${item.sourceType ?? item.kind}，状态 ${item.status}。${latestCandidate}`;
+    return `- ${item.ticker}：来自 ${displaySource(item.source, item.sourceName)}，资料类型为 ${sourceTypeLabel(item.sourceType ?? item.kind)}。${latestCandidate}`;
   });
 
   return lines.length
-    ? ["来源追溯：", ...lines].join("\n")
+    ? ["来源追溯：", ...lines, "", "如果需要核对原文，可以从下方证据卡片进入对应资料。"].join("\n")
     : "当前资料中没有找到可追溯的来源记录。";
 }
 
 function buildOverviewAnswer(scoped: ReturnType<typeof scopeData>) {
   const positionLines = scoped.positions.slice(0, 6).map((position) => (
-    `${position.ticker} 是${position.netStance}，最新动作是“${position.latestAction}”，来自 ${position.sourceCount} 个来源。`
+    `- ${position.ticker}：${position.netStance}，最新动作“${position.latestAction}”，来自 ${position.sourceCount} 个来源。`
   ));
   const activeCount = scoped.holdings.length;
 
   return positionLines.length
-    ? [`当前资料库里有 ${activeCount} 条已确认记录，聚合后主要看到这些标的：`, ...positionLines, "目前这些结论只代表资料库中已确认的记录，不包含资料库以外的信息。"].join("\n")
+    ? [`当前资料库里有 ${activeCount} 条已确认记录，聚合后主要看到这些标的：`, ...positionLines, "", "这些结论只代表资料库中已确认的记录，不包含资料库以外的信息。"].join("\n")
     : `当前资料库里有 ${activeCount} 条已确认记录，但还没有可展示的聚合仓位。`;
 }
 
@@ -618,6 +628,20 @@ function displaySource(source: string, sourceName?: string) {
   if (sourceName) return sourceName;
   if (source.startsWith("storage://")) return "截图上传";
   return source;
+}
+
+function sourceTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    kol_post: "KOL 观点",
+    filing: "机构持仓文件",
+    research: "研究资料",
+    personal_note: "个人笔记",
+    screenshot: "截图",
+    text: "文本",
+    link: "链接"
+  };
+
+  return labels[type] ?? type;
 }
 
 function textForAnswerLayer(text: string) {
