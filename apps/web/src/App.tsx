@@ -288,7 +288,6 @@ export function App() {
 
 function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSignOut?: () => Promise<void> }) {
   const [view, setView] = useState<ViewKey>("dashboard");
-  const [command, setCommand] = useState("粘贴资料  |  问 NET  |  最近变化  |  进入录入");
   const [sourceItems, setSourceItems] = useState<SourceItem[]>(fallbackSources);
   const [selectedSource, setSelectedSource] = useState<SourceItem>(fallbackSources[0]);
   const [sourcesStatus, setSourcesStatus] = useState<"api" | "fallback" | "loading">("loading");
@@ -379,14 +378,8 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
   return (
     <main className="terminal-shell">
       <header className="command-bar">
-        <div className="product-mark">PIT &lt;执行&gt;</div>
-        <input
-          className="command-input"
-          value={command}
-          onChange={(event) => setCommand(event.target.value)}
-          aria-label="命令输入"
-        />
-        <div className="session-clock">私有资料分析工作台</div>
+        <div className="product-mark">持仓图谱</div>
+        <div className="account-label" title={accountLabel}>{accountLabel}</div>
       </header>
 
       <section className="ticker-strip" aria-label="已确认资料 ticker">
@@ -422,10 +415,6 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
             <DashboardView
               dashboardPayload={dashboardPayload}
               dataStatus={dataStatus}
-              onAsk={(query) => {
-                setRagInitialQuery(query);
-                setView("rag");
-              }}
               onOpenIngest={() => setView("ingest")}
               onOpenLibrary={() => setView("library")}
               pendingIngestItems={pendingIngestItems}
@@ -472,7 +461,7 @@ function AuthLoadingView() {
   return (
     <main className="auth-screen">
       <section className="auth-panel">
-        <div className="product-mark">PIT &lt;执行&gt;</div>
+        <div className="product-mark">持仓图谱</div>
         <p>正在验证登录状态...</p>
       </section>
     </main>
@@ -504,7 +493,7 @@ function LoginView({ onSignedIn }: { onSignedIn: (token: string, email: string) 
   return (
     <main className="auth-screen">
       <section className="auth-panel">
-        <div className="product-mark">PIT &lt;执行&gt;</div>
+        <div className="product-mark">持仓图谱</div>
         <h1>账户登录</h1>
         <p>{status}</p>
         <form className="auth-form" onSubmit={handleLogin}>
@@ -671,7 +660,6 @@ function RagView({ initialQuery, onOpenEvidence }: { initialQuery: string; onOpe
 function DashboardView({
   dashboardPayload,
   dataStatus,
-  onAsk,
   onOpenIngest,
   onOpenLibrary,
   pendingIngestItems,
@@ -680,7 +668,6 @@ function DashboardView({
 }: {
   dashboardPayload: DashboardPayload;
   dataStatus: "api" | "error" | "loading";
-  onAsk: (query: string) => void;
   onOpenIngest: () => void;
   onOpenLibrary: () => void;
   pendingIngestItems: IngestItem[];
@@ -803,24 +790,6 @@ function DashboardView({
         )}
       </section>
 
-      <section className="panel dashboard-ask-panel">
-        <div className="panel-header">
-          <span>快速提问 / Ask Library</span>
-          <strong>基于已存资料</strong>
-        </div>
-        <div className="quick-question-list">
-          {[
-            "当前有哪些持仓？",
-            "最近有什么变化？",
-            "有什么风险？",
-            "NET 有哪些证据？"
-          ].map((question) => (
-            <button key={question} onClick={() => onAsk(question)} type="button">
-              {question}
-            </button>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
