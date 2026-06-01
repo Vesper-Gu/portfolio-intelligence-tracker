@@ -11,7 +11,6 @@ import {
   type IngestStatus,
   type PortfolioPosition,
   type QualityEvent,
-  type OpsStatus,
   type RagQueryResponse,
   type ResearchSourceType,
   type SignalAction,
@@ -33,7 +32,6 @@ import {
   fetchIngestImageUrl,
   fetchIngestItems,
   fetchPortfolioPositions,
-  fetchOpsStatus,
   fetchQualityEvents,
   fetchSources,
   queryRag,
@@ -50,7 +48,7 @@ const navItems: Array<{ key: ViewKey; label: string }> = [
   { key: "ingest", label: "录入" },
   { key: "library", label: "标的资料库" },
   { key: "rag", label: "问资料库" },
-  { key: "settings", label: "设置" }
+  { key: "settings", label: "账户" }
 ];
 const publicDemoMode = import.meta.env.VITE_DEMO_MODE === "true";
 
@@ -70,6 +68,8 @@ const researchSourceOptions: Array<{ value: ResearchSourceType; label: string }>
   { value: "screenshot", label: "截图资料" },
   { value: "other", label: "其他" }
 ];
+
+const signalActionOptions: SignalAction[] = ["观察", "新建仓", "加仓", "持有", "减仓", "风险"];
 
 const emptyAnalysisDashboardPayload: DashboardPayload = {
   ...fallbackDashboardPayload,
@@ -214,6 +214,11 @@ function getUserFacingCitationSnippet(citation: RagQueryResponse["citations"][nu
     .trim();
 }
 
+function getCitationPrimaryTicker(citation: RagQueryResponse["citations"][number]) {
+  const text = `${citation.title} ${citation.snippet}`;
+  return text.match(/\b[A-Z]{2,5}(?:\.[A-Z]{2})?\b/)?.[0] ?? "资料";
+}
+
 type NewIngestMode = CreateIngestItemRequest["kind"];
 const signalActions: SignalAction[] = ["加仓", "持有", "减仓", "新建仓", "风险", "观察"];
 
@@ -297,9 +302,17 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
   const [portfolioPositions, setPortfolioPositions] = useState<PortfolioPosition[]>([]);
   const [recentEvents, setRecentEvents] = useState<HoldingEvent[]>([]);
   const [pendingIngestItems, setPendingIngestItems] = useState<IngestItem[]>([]);
-  const [focusedIngestId] = useState<string | null>(null);
+  const [focusedIngestId, setFocusedIngestId] = useState<string | null>(null);
+  const [libraryFocusTicker, setLibraryFocusTicker] = useState<string | null>(null);
   const [ragInitialQuery, setRagInitialQuery] = useState("当前有哪些持仓？");
+  const [ragInitialQueryRevision, setRagInitialQueryRevision] = useState(0);
   const [evidenceIngestId, setEvidenceIngestId] = useState<string | null>(null);
+
+  function openRagWithQuery(query: string) {
+    setRagInitialQuery(query);
+    setRagInitialQueryRevision((currentRevision) => currentRevision + 1);
+    setView("rag");
+  }
 
   function replaceSource(nextSource: SourceItem) {
     setSourceItems((currentSources) => currentSources.map((source) => (
@@ -370,7 +383,7 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
     if (view === "ingest") return "录入 / 资料确认队列";
     if (view === "library") return "标的资料库 / Ticker Library";
     if (view === "rag") return "问资料库 / Evidence-grounded Answers";
-    if (view === "settings") return "设置 / 隐私与运维";
+    if (view === "settings") return "账户与数据";
     if (view === "sources") return "来源设置 / KOL 与数据源管理";
     return "总览 / 今日资料库";
   }, [view]);
@@ -388,10 +401,18 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
             <span>暂无已确认资料形成的标的倾向</span>
           </div>
         ) : portfolioPositions.slice(0, 8).map((position) => (
-          <div className="ticker-item" key={position.ticker}>
+          <button
+            className="ticker-item"
+            key={position.ticker}
+            onClick={() => {
+              setLibraryFocusTicker(position.ticker);
+              setView("library");
+            }}
+            type="button"
+          >
             <span>{position.ticker}</span>
             <strong className={toneClass[stanceTone(position.netStance)]}>{position.netStance}</strong>
-          </div>
+          </button>
         ))}
       </section>
 
@@ -415,29 +436,52 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
             <DashboardView
               dashboardPayload={dashboardPayload}
               dataStatus={dataStatus}
-              onOpenIngest={() => setView("ingest")}
+              onOpenIngest={(ingestId) => {
+                setFocusedIngestId(ingestId ?? null);
+                setView("ingest");
+              }}
               onOpenLibrary={() => setView("library")}
+              onOpenTicker={(ticker) => {
+                setLibraryFocusTicker(ticker);
+                setView("library");
+              }}
+              onOpenEvidence={setEvidenceIngestId}
               pendingIngestItems={pendingIngestItems}
               portfolioPositions={portfolioPositions}
               recentEvents={recentEvents}
             />
           )}
-          {view === "ingest" && <IngestView focusedIngestId={focusedIngestId} />}
+          {view === "ingest" && (
+            <IngestView
+              focusedIngestId={focusedIngestId}
+              onAccepted={(ticker) => {
+                setLibraryFocusTicker(ticker);
+                setView("library");
+              }}
+            />
+          )}
           {view === "library" && (
             <TickerLibraryView
               dataStatus={dataStatus}
+              focusedTicker={libraryFocusTicker}
               holdings={holdings}
-              onAsk={(query) => {
-                setRagInitialQuery(query);
-                setView("rag");
+              onAsk={openRagWithQuery}
+              onOpenIngest={() => {
+                setFocusedIngestId(null);
+                setView("ingest");
               }}
-              onOpenIngest={() => setView("ingest")}
               onOpenEvidence={setEvidenceIngestId}
               positions={portfolioPositions}
               recentEvents={recentEvents}
             />
           )}
-          {view === "rag" && <RagView initialQuery={ragInitialQuery} onOpenEvidence={setEvidenceIngestId} />}
+          {view === "rag" && (
+            <RagView
+              initialQuery={ragInitialQuery}
+              initialQueryRevision={ragInitialQueryRevision}
+              onOpenEvidence={setEvidenceIngestId}
+            />
+          )}
           {view === "settings" && <SettingsView accountLabel={accountLabel} onSignOut={onSignOut} />}
           {view === "sources" && (
             <SourcesView
@@ -451,7 +495,19 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
         </section>
       </div>
       {evidenceIngestId && (
-        <EvidenceDetailDrawer ingestItemId={evidenceIngestId} onClose={() => setEvidenceIngestId(null)} />
+        <EvidenceDetailDrawer
+          ingestItemId={evidenceIngestId}
+          onAskTicker={(ticker) => {
+            setEvidenceIngestId(null);
+            openRagWithQuery(`${ticker} 当前资料库怎么看？`);
+          }}
+          onClose={() => setEvidenceIngestId(null)}
+          onOpenTicker={(ticker) => {
+            setEvidenceIngestId(null);
+            setLibraryFocusTicker(ticker);
+            setView("library");
+          }}
+        />
       )}
     </main>
   );
@@ -512,16 +568,25 @@ function LoginView({ onSignedIn }: { onSignedIn: (token: string, email: string) 
   );
 }
 
-function RagView({ initialQuery, onOpenEvidence }: { initialQuery: string; onOpenEvidence: (id: string) => void }) {
+function RagView({
+  initialQuery,
+  initialQueryRevision,
+  onOpenEvidence
+}: {
+  initialQuery: string;
+  initialQueryRevision: number;
+  onOpenEvidence: (id: string) => void;
+}) {
   const [query, setQuery] = useState(initialQuery);
   const [messages, setMessages] = useState<RagChatMessage[]>([]);
   const [status, setStatus] = useState("等待查询");
   const [isLoading, setIsLoading] = useState(false);
+  const suggestedQueries = ["当前有哪些持仓？", "最近有什么变化？", "有哪些风险线索？", "NVDA 有哪些证据？"];
 
   useEffect(() => {
     setQuery(initialQuery);
     setStatus("等待查询");
-  }, [initialQuery]);
+  }, [initialQuery, initialQueryRevision]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -581,14 +646,22 @@ function RagView({ initialQuery, onOpenEvidence }: { initialQuery: string; onOpe
     <div className="rag-grid">
       <section className="panel rag-query-panel">
         <div className="panel-header">
-          <span>Chat Library</span>
+          <span>问资料库</span>
           <strong>{status}</strong>
         </div>
         <p className="rag-boundary">回答只使用你的资料库内容；没有证据时会直接说明资料不足，不补外部行情或投资建议。</p>
+        <div className="rag-suggestion-list" aria-label="常用问题">
+          {suggestedQueries.map((suggestion) => (
+            <button key={suggestion} onClick={() => setQuery(suggestion)} type="button">
+              {suggestion}
+            </button>
+          ))}
+        </div>
         <form className="rag-form" onSubmit={handleSubmit}>
           <textarea
             className="terminal-textarea"
             onChange={(event) => setQuery(event.target.value)}
+            placeholder="围绕已确认资料连续追问，例如：SMH 最近为什么被加入资料库？"
             value={query}
           />
           <button className="save-button" disabled={isLoading} type="submit">
@@ -599,7 +672,7 @@ function RagView({ initialQuery, onOpenEvidence }: { initialQuery: string; onOpe
 
       <section className="panel rag-chat-panel">
         <div className="panel-header">
-          <span>Conversation</span>
+          <span>对话</span>
           <strong>
             {messages.length ? `${messages.length} 条消息` : "未开始"}
           </strong>
@@ -638,16 +711,22 @@ function RagView({ initialQuery, onOpenEvidence }: { initialQuery: string; onOpe
           <div className="citation-list">
             {latestAssistant.citations.map((citation) => (
               <button
-                className="citation-row"
+                className="citation-card"
                 disabled={!citation.sourceIngestItemId}
                 key={citation.id}
                 onClick={() => citation.sourceIngestItemId && onOpenEvidence(citation.sourceIngestItemId)}
                 type="button"
               >
+                <div className="citation-card-top">
+                  <span>{getCitationPrimaryTicker(citation)}</span>
+                  <b>{formatCitationEntityType(citation.entityType)}</b>
+                </div>
                 <strong>{citation.title}</strong>
-                <span>{formatCitationEntityType(citation.entityType)} · {citation.entityId}</span>
                 <em>{getUserFacingCitationSnippet(citation)}</em>
-                {citation.sourceIngestItemId && <b>查看原始资料</b>}
+                <div className="citation-card-footer">
+                  <span>{citation.entityId}</span>
+                  {citation.sourceIngestItemId ? <b>查看原始资料</b> : <b>仅聚合记录</b>}
+                </div>
               </button>
             ))}
           </div>
@@ -662,14 +741,18 @@ function DashboardView({
   dataStatus,
   onOpenIngest,
   onOpenLibrary,
+  onOpenTicker,
+  onOpenEvidence,
   pendingIngestItems,
   portfolioPositions,
   recentEvents
 }: {
   dashboardPayload: DashboardPayload;
   dataStatus: "api" | "error" | "loading";
-  onOpenIngest: () => void;
+  onOpenIngest: (ingestId?: string) => void;
   onOpenLibrary: () => void;
+  onOpenTicker: (ticker: string) => void;
+  onOpenEvidence: (ingestId: string) => void;
   pendingIngestItems: IngestItem[];
   portfolioPositions: PortfolioPosition[];
   recentEvents: HoldingEvent[];
@@ -678,12 +761,46 @@ function DashboardView({
   const { heatmapColumns, heatmapRows } = dashboardPayload;
   const latestEvents = [...recentEvents].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
   const visiblePendingItems = pendingIngestItems.slice(0, 5);
+  const confirmedHoldingCount = portfolioPositions.reduce((sum, position) => sum + position.holdingsCount, 0);
+  const sourceCount = new Set(portfolioPositions.flatMap((position) => position.sources)).size;
+  const latestEvent = latestEvents[0];
 
   return (
-    <div className="dashboard-grid">
-      <section className="panel positions-panel dashboard-primary-panel">
+    <div className="dashboard-stack">
+      <section className="dashboard-hero">
+        <div className="dashboard-hero-copy">
+          <span>{publicDemoMode ? "Demo Research Workspace" : "Research Workspace"}</span>
+          <h2>集中管理投研资料。</h2>
+          {publicDemoMode && (
+            <div className="demo-note">
+              当前是合成数据 Demo：不上传真实截图，不连接真实模型，不提供投资建议。
+            </div>
+          )}
+        </div>
+        <div className="dashboard-metrics" aria-label="资料库摘要">
+          <MetricCard label="已确认标的" value={`${portfolioPositions.length}`} detail={`${confirmedHoldingCount} 条资料`} tone="positive" />
+          <MetricCard label="待处理资料" value={`${pendingIngestItems.length}`} detail={pendingIngestItems.length ? "需要复核" : "队列清空"} tone={pendingIngestItems.length ? "warning" : "neutral"} />
+          <MetricCard label="来源主体" value={`${sourceCount}`} detail={sourceCount ? "可追溯" : "等待录入"} tone="neutral" />
+          <MetricCard label="最近事件" value={latestEvent ? latestEvent.ticker : "暂无"} detail={latestEvent ? `${latestEvent.action} · ${formatShortDate(latestEvent.createdAt)}` : "暂无变化"} tone={latestEvent ? actionTone(latestEvent.action) : "neutral"} />
+        </div>
+      </section>
+
+      {publicDemoMode && (
+        <section className="demo-path" aria-label="演示路径">
+          <span>3 分钟演示路径</span>
+          <ol>
+            <li>看总览中的标的聚合和来源矩阵</li>
+            <li>进入录入队列确认一条待处理资料</li>
+            <li>打开标的资料库查看证据链</li>
+            <li>问资料库连续追问依据和风险</li>
+          </ol>
+        </section>
+      )}
+
+      <div className="dashboard-grid">
+        <section className="panel positions-panel dashboard-primary-panel">
         <div className="panel-header">
-          <span>当前关注标的 / Portfolio Positions</span>
+          <span>当前关注标的</span>
           <strong>{dataStatus === "api" ? "API 实时" : dataStatus === "loading" ? "加载中" : "连接失败"}</strong>
         </div>
         {activePositions.length === 0 ? (
@@ -703,7 +820,9 @@ function DashboardView({
             <tbody>
               {activePositions.map((position) => (
                 <tr key={position.ticker}>
-                  <td className="ticker-cell">{position.ticker}</td>
+                  <td className="ticker-cell">
+                    <button onClick={() => onOpenTicker(position.ticker)} type="button">{position.ticker}</button>
+                  </td>
                   <td className={position.netStance === "看多" ? "tone-positive" : position.netStance === "看空" ? "tone-negative" : "tone-neutral"}>
                     {position.netStance}
                   </td>
@@ -719,11 +838,11 @@ function DashboardView({
         <button className="panel-link-button positions-library-link" onClick={onOpenLibrary} type="button">
           查看标的资料库
         </button>
-      </section>
+        </section>
 
-      <section className="panel dashboard-side-panel">
+        <section className="panel dashboard-side-panel">
         <div className="panel-header">
-          <span>待处理资料 / Review Queue</span>
+          <span>待处理资料</span>
           <strong>{pendingIngestItems.length}</strong>
         </div>
         {visiblePendingItems.length === 0 ? (
@@ -731,7 +850,7 @@ function DashboardView({
         ) : (
           <div className="compact-list">
             {visiblePendingItems.map((item) => (
-              <button className="compact-row" key={item.id} onClick={onOpenIngest} type="button">
+              <button className="compact-row" key={item.id} onClick={() => onOpenIngest(item.id)} type="button">
                 <strong>{item.ticker}</strong>
                 <span>{item.kind} · {item.status}</span>
                 <em>{formatSourceForUser(item.source)}</em>
@@ -739,30 +858,30 @@ function DashboardView({
             ))}
           </div>
         )}
-        <button className="panel-link-button" onClick={onOpenIngest} type="button">进入录入队列</button>
-      </section>
+        <button className="panel-link-button" onClick={() => onOpenIngest()} type="button">进入录入队列</button>
+        </section>
 
-      <section className="panel dashboard-recent-panel">
+        <section className="panel dashboard-recent-panel">
         <div className="panel-header">
-          <span>最近变化 / Recent Events</span>
+          <span>最近变化</span>
           <strong>{latestEvents.length ? `${latestEvents.length} 条` : "暂无"}</strong>
         </div>
         {latestEvents.length === 0 ? (
           <p className="empty-state">暂无最近确认事件。</p>
         ) : (
-          <div className="compact-list">
+          <div className="timeline-list">
             {latestEvents.map((event) => (
-              <div className="compact-row static" key={event.id}>
-                <strong className={toneClass[actionTone(event.action)]}>{event.ticker} · {event.action}</strong>
-                <span>{formatShortDate(event.createdAt)}</span>
-                <em>{event.summary}</em>
-              </div>
+              <button className="timeline-row" key={event.id} onClick={() => onOpenEvidence(event.ingestItemId)} type="button">
+                <span className={toneClass[actionTone(event.action)]}>{event.ticker}</span>
+                <strong>{event.action} · {formatShortDate(event.createdAt)}</strong>
+                <em>{hideConfidenceText(event.summary)}</em>
+              </button>
             ))}
           </div>
         )}
-      </section>
+        </section>
 
-      <section className="panel heatmap-panel">
+        <section className="panel heatmap-panel">
         <div className="panel-header">
           <span>来源 × Ticker 倾向矩阵</span>
           <strong>已确认资料</strong>
@@ -788,14 +907,25 @@ function DashboardView({
             <div className="legend">绿=加仓 / 新建仓 · 黄=持有 / 观察 · 红=减仓 / 风险 · 深灰=无记录</div>
           </>
         )}
-      </section>
+        </section>
+      </div>
+    </div>
+  );
+}
 
+function MetricCard({ label, value, detail, tone }: { label: string; value: string; detail: string; tone: Tone }) {
+  return (
+    <div className="metric-card">
+      <span>{label}</span>
+      <strong className={toneClass[tone]}>{value}</strong>
+      <em>{detail}</em>
     </div>
   );
 }
 
 function TickerLibraryView({
   dataStatus,
+  focusedTicker,
   holdings,
   onAsk,
   onOpenIngest,
@@ -804,6 +934,7 @@ function TickerLibraryView({
   recentEvents
 }: {
   dataStatus: "api" | "error" | "loading";
+  focusedTicker: string | null;
   holdings: HoldingRecord[];
   onAsk: (query: string) => void;
   onOpenIngest: () => void;
@@ -811,14 +942,101 @@ function TickerLibraryView({
   positions: PortfolioPosition[];
   recentEvents: HoldingEvent[];
 }) {
-  const activeHoldings = holdings.filter((holding) => holding.status === "已确认");
-  const tickers = [...new Set([
-    ...positions.map((position) => position.ticker),
-    ...activeHoldings.map((holding) => holding.ticker),
-    ...recentEvents.map((event) => event.ticker)
-  ])].sort();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [actionFilter, setActionFilter] = useState<"all" | SignalAction>("all");
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<"all" | ResearchSourceType>("all");
+  const [timeWindow, setTimeWindow] = useState<"all" | "7d" | "30d">("all");
+  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
 
-  if (tickers.length === 0) {
+  useEffect(() => {
+    if (!focusedTicker) return;
+
+    setSearchQuery("");
+    setActionFilter("all");
+    setSourceTypeFilter("all");
+    setTimeWindow("all");
+    setSelectedTicker(focusedTicker);
+  }, [focusedTicker]);
+
+  const activeHoldings = holdings.filter((holding) => holding.status === "已确认");
+  const holdingsById = new Map(activeHoldings.map((holding) => [holding.id, holding]));
+  const normalizedSearch = searchQuery.trim().toUpperCase();
+  const cutoff = timeWindow === "all"
+    ? null
+    : Date.now() - (timeWindow === "7d" ? 7 : 30) * 24 * 60 * 60 * 1000;
+
+  function isInsideTimeWindow(value: string) {
+    if (!cutoff) return true;
+    return new Date(value).getTime() >= cutoff;
+  }
+
+  function matchesSearch(value: string | undefined) {
+    if (!normalizedSearch) return true;
+    return value?.toUpperCase().includes(normalizedSearch) ?? false;
+  }
+
+  const filteredHoldings = activeHoldings.filter((holding) => {
+    const matchesAction = actionFilter === "all" || holding.lastAction === actionFilter;
+    const matchesSourceType = sourceTypeFilter === "all" || holding.sourceType === sourceTypeFilter;
+    const matchesTime = isInsideTimeWindow(holding.updatedAt);
+    const matchesText = [
+      holding.ticker,
+      holding.source,
+      holding.sourceName,
+      holding.reportingPeriod,
+      formatSourceType(holding.sourceType)
+    ].some(matchesSearch);
+
+    return matchesAction && matchesSourceType && matchesTime && matchesText;
+  });
+
+  const filteredEvents = recentEvents.filter((event) => {
+    const holding = holdingsById.get(event.holdingId);
+    const matchesAction = actionFilter === "all" || event.action === actionFilter;
+    const matchesSourceType = sourceTypeFilter === "all" || holding?.sourceType === sourceTypeFilter;
+    const matchesTime = isInsideTimeWindow(event.createdAt);
+    const matchesText = [
+      event.ticker,
+      event.action,
+      event.summary,
+      holding?.source,
+      holding?.sourceName,
+      formatSourceType(holding?.sourceType)
+    ].some(matchesSearch);
+
+    return matchesAction && matchesSourceType && matchesTime && matchesText;
+  });
+
+  const hasAnyTicker = positions.length > 0 || activeHoldings.length > 0 || recentEvents.length > 0;
+  const hasActiveFilters = Boolean(normalizedSearch) || actionFilter !== "all" || sourceTypeFilter !== "all" || timeWindow !== "all";
+  const visibleTickers = [...new Set([
+    ...(hasActiveFilters ? [] : positions.map((position) => position.ticker)),
+    ...filteredHoldings.map((holding) => holding.ticker),
+    ...filteredEvents.map((event) => event.ticker)
+  ])].sort();
+  const detailTicker = selectedTicker && visibleTickers.includes(selectedTicker)
+    ? selectedTicker
+    : visibleTickers[0] ?? null;
+  const detailPosition = detailTicker ? positions.find((item) => item.ticker === detailTicker) : undefined;
+  const detailHoldings = detailTicker
+    ? filteredHoldings
+      .filter((holding) => holding.ticker === detailTicker)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    : [];
+  const detailEvents = detailTicker
+    ? filteredEvents
+      .filter((event) => event.ticker === detailTicker)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    : [];
+
+  function resetFilters() {
+    setSearchQuery("");
+    setActionFilter("all");
+    setSourceTypeFilter("all");
+    setTimeWindow("all");
+  }
+
+  if (!hasAnyTicker) {
     return (
       <section className="panel library-empty-panel">
         <div className="panel-header">
@@ -832,11 +1050,120 @@ function TickerLibraryView({
   }
 
   return (
-    <div className="library-grid">
-      {tickers.map((ticker) => {
+    <>
+      <section className="panel library-filter-panel">
+        <div className="panel-header">
+          <span>筛选资料库</span>
+          <strong>{visibleTickers.length} 个标的 · {filteredHoldings.length} 条资料</strong>
+        </div>
+        <div className="library-filter-bar">
+          <label>
+            <span>搜索</span>
+            <input
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="ticker / 来源 / 报告期"
+              type="search"
+              value={searchQuery}
+            />
+          </label>
+          <label>
+            <span>时间</span>
+            <select onChange={(event) => setTimeWindow(event.target.value as "all" | "7d" | "30d")} value={timeWindow}>
+              <option value="all">全部时间</option>
+              <option value="7d">最近 7 天</option>
+              <option value="30d">最近 30 天</option>
+            </select>
+          </label>
+          <label>
+            <span>动作</span>
+            <select onChange={(event) => setActionFilter(event.target.value as "all" | SignalAction)} value={actionFilter}>
+              <option value="all">全部动作</option>
+              {signalActionOptions.map((action) => (
+                <option key={action} value={action}>{action}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>来源类型</span>
+            <select onChange={(event) => setSourceTypeFilter(event.target.value as "all" | ResearchSourceType)} value={sourceTypeFilter}>
+              <option value="all">全部来源</option>
+              {researchSourceOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <button disabled={!hasActiveFilters} onClick={resetFilters} type="button">清除筛选</button>
+        </div>
+      </section>
+
+      {visibleTickers.length === 0 ? (
+        <section className="panel library-empty-panel">
+          <div className="panel-header">
+            <span>没有匹配资料</span>
+            <strong>调整筛选</strong>
+          </div>
+          <p className="empty-state">当前筛选条件下没有匹配的标的资料。可以放宽时间、动作或来源类型。</p>
+          <button className="panel-link-button" onClick={resetFilters} type="button">清除筛选</button>
+        </section>
+      ) : (
+        <>
+          {detailTicker && (
+            <section className="panel ticker-detail-panel">
+              <div className="panel-header">
+                <span>{detailTicker} 资料链路</span>
+                <strong>{detailHoldings.length} 条资料 · {detailEvents.length} 条事件</strong>
+              </div>
+              <div className="ticker-detail-body">
+                <div className="ticker-detail-summary">
+                  <Field label="聚合方向" value={detailPosition?.netStance ?? "待聚合"} tone={detailPosition?.netStance === "看多" ? "positive" : detailPosition?.netStance === "看空" ? "negative" : "neutral"} />
+                  <Field label="最新动作" value={detailPosition?.latestAction ?? detailHoldings[0]?.lastAction ?? "暂无"} tone={actionTone(detailPosition?.latestAction ?? detailHoldings[0]?.lastAction ?? "观察")} />
+                  <Field label="来源数量" value={`${detailPosition?.sourceCount ?? new Set(detailHoldings.map((holding) => sourceDisplayName(holding))).size} 个`} tone="neutral" />
+                  <Field label="最后更新" value={detailPosition ? formatShortDate(detailPosition.lastUpdated) : detailHoldings[0] ? formatShortDate(detailHoldings[0].updatedAt) : "暂无"} tone="neutral" />
+                </div>
+                <div className="ticker-detail-columns">
+                  <div className="ticker-detail-section">
+                    <span>已确认资料</span>
+                    {detailHoldings.length === 0 ? (
+                      <p>当前筛选下没有已确认资料。</p>
+                    ) : (
+                      detailHoldings.map((holding) => (
+                        <button className="ticker-detail-row" key={holding.id} onClick={() => onOpenEvidence(holding.sourceIngestItemId)} type="button">
+                          <strong className={toneClass[actionTone(holding.lastAction)]}>{holding.lastAction} · {sourceDisplayName(holding)}</strong>
+                          <span>{formatSourceType(holding.sourceType)} · {holding.publishedAt ?? holding.reportingPeriod ?? formatShortDate(holding.updatedAt)}</span>
+                          <em>打开原始证据</em>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  <div className="ticker-detail-section">
+                    <span>事件时间线</span>
+                    {detailEvents.length === 0 ? (
+                      <p>当前筛选下没有确认事件。</p>
+                    ) : (
+                      detailEvents.map((event) => (
+                        <button className="ticker-detail-row" key={event.id} onClick={() => onOpenEvidence(event.ingestItemId)} type="button">
+                          <strong className={toneClass[actionTone(event.action)]}>{event.action} · {formatShortDate(event.createdAt)}</strong>
+                          <span>{event.id}</span>
+                          <em>{hideConfidenceText(event.summary)} · 打开原始证据</em>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <div className="ticker-detail-actions">
+                  <button onClick={() => onAsk(`${detailTicker} 当前资料库怎么看？`)} type="button">问这个标的</button>
+                  <button onClick={() => onAsk(`${detailTicker} 最近有什么变化？`)} type="button">问最近变化</button>
+                  <button onClick={() => onAsk(`${detailTicker} 有哪些证据？`)} type="button">问证据来源</button>
+                </div>
+              </div>
+            </section>
+          )}
+
+        <div className="library-grid">
+      {visibleTickers.map((ticker) => {
         const position = positions.find((item) => item.ticker === ticker);
-        const tickerHoldings = activeHoldings.filter((holding) => holding.ticker === ticker);
-        const tickerEvents = recentEvents
+        const tickerHoldings = filteredHoldings.filter((holding) => holding.ticker === ticker);
+        const tickerEvents = filteredEvents
           .filter((event) => event.ticker === ticker)
           .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
         const latestEvent = tickerEvents[0];
@@ -867,6 +1194,13 @@ function TickerLibraryView({
                 )}
               </div>
               <div className="ticker-card-actions">
+                <button
+                  className={detailTicker === ticker ? "active" : undefined}
+                  onClick={() => setSelectedTicker(ticker)}
+                  type="button"
+                >
+                  查看详情
+                </button>
                 <button onClick={() => onAsk(`${ticker} 当前资料库怎么看？`)} type="button">问这个标的</button>
                 <button onClick={() => onAsk(`${ticker} 有哪些证据？`)} type="button">查看依据</button>
                 {tickerHoldings[0] && (
@@ -877,11 +1211,24 @@ function TickerLibraryView({
           </section>
         );
       })}
-    </div>
+        </div>
+        </>
+      )}
+    </>
   );
 }
 
-function EvidenceDetailDrawer({ ingestItemId, onClose }: { ingestItemId: string; onClose: () => void }) {
+function EvidenceDetailDrawer({
+  ingestItemId,
+  onAskTicker,
+  onClose,
+  onOpenTicker
+}: {
+  ingestItemId: string;
+  onAskTicker: (ticker: string) => void;
+  onClose: () => void;
+  onOpenTicker: (ticker: string) => void;
+}) {
   const [item, setItem] = useState<IngestItem | null>(null);
   const [candidates, setCandidates] = useState<ExtractionCandidate[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -974,6 +1321,14 @@ function EvidenceDetailDrawer({ ingestItemId, onClose }: { ingestItemId: string;
               <h3>资料结论</h3>
               <p>{getUserFacingSourceSummary(item) || "暂无资料摘要。"}</p>
             </section>
+            <div className="evidence-actions">
+              <button onClick={() => onOpenTicker(item.extractedTicker ?? item.ticker)} type="button">
+                打开标的资料库
+              </button>
+              <button onClick={() => onAskTicker(item.extractedTicker ?? item.ticker)} type="button">
+                问这个标的
+              </button>
+            </div>
             <section className="evidence-section">
               <h3>{item.kind === "screenshot" ? "原始图片" : "原始内容"}</h3>
               {imageUrl && <img alt={`${item.ticker} 原始资料`} src={imageUrl} />}
@@ -1002,7 +1357,13 @@ function EvidenceDetailDrawer({ ingestItemId, onClose }: { ingestItemId: string;
   );
 }
 
-function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
+function IngestView({
+  focusedIngestId,
+  onAccepted
+}: {
+  focusedIngestId: string | null;
+  onAccepted: (ticker: string) => void;
+}) {
   const [items, setItems] = useState<IngestItem[]>([]);
   const [selectedId, setSelectedId] = useState(focusedIngestId ?? "");
   const [statusText, setStatusText] = useState("正在连接 API...");
@@ -1092,7 +1453,7 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
   }, [selected]);
 
   async function runMutation(action: () => Promise<IngestItem>, successText: string) {
-    if (!selected) return;
+    if (!selected) return undefined;
 
     setIsMutating(true);
 
@@ -1100,11 +1461,23 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
       const nextItem = await action();
       replaceItem(nextItem);
       setStatusText(successText);
+      return nextItem;
     } catch {
       setStatusText("API 写入失败，请确认后端服务状态");
+      return undefined;
     } finally {
       setIsMutating(false);
     }
+  }
+
+  async function handleAcceptSelected() {
+    if (!selected) return;
+
+    const nextItem = await runMutation(() => acceptIngestItem(selected.id), `${selected.id} 已加入资料库，正在打开标的资料库`);
+
+    if (!nextItem) return;
+
+    onAccepted((nextItem.extractedTicker ?? nextItem.ticker).toUpperCase());
   }
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
@@ -1502,7 +1875,7 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
           </button>
           <button
             disabled={isMutating || selected.status === "已接受"}
-            onClick={() => runMutation(() => acceptIngestItem(selected.id), `${selected.id} 已加入资料库`)}
+            onClick={handleAcceptSelected}
             type="button"
           >
             加入资料库
@@ -1544,25 +1917,8 @@ function IngestView({ focusedIngestId }: { focusedIngestId: string | null }) {
 }
 
 function SettingsView({ accountLabel, onSignOut }: { accountLabel: string; onSignOut?: () => Promise<void> }) {
-  const [opsStatus, setOpsStatus] = useState<OpsStatus | null>(null);
-  const [statusText, setStatusText] = useState("正在读取运行状态...");
+  const [statusText, setStatusText] = useState("");
   const [isMutating, setIsMutating] = useState(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    fetchOpsStatus(controller.signal)
-      .then((payload) => {
-        setOpsStatus(payload);
-        setStatusText("运行状态已更新");
-      })
-      .catch(() => {
-        setOpsStatus(null);
-        setStatusText("无法读取运行状态，请确认 API 服务");
-      });
-
-    return () => controller.abort();
-  }, []);
 
   async function handleExportData() {
     setIsMutating(true);
@@ -1592,7 +1948,6 @@ function SettingsView({ accountLabel, onSignOut }: { accountLabel: string; onSig
     try {
       const result = await deleteAccountData();
       setStatusText(`已删除资料：录入 ${result.deleted.ingestItems}，持仓 ${result.deleted.holdings}，事件 ${result.deleted.holdingEvents}`);
-      setOpsStatus(await fetchOpsStatus());
     } catch {
       setStatusText("删除失败，请确认 API 状态");
     } finally {
@@ -1605,7 +1960,7 @@ function SettingsView({ accountLabel, onSignOut }: { accountLabel: string; onSig
       <section className="panel settings-panel">
         <div className="panel-header">
           <span>账户与数据</span>
-          <strong>{statusText}</strong>
+          {statusText && <strong>{statusText}</strong>}
         </div>
         <div className="settings-copy">
           <p>当前账户：{accountLabel}。资料、候选、持仓和问答检索均按当前账户隔离。</p>
@@ -1620,50 +1975,15 @@ function SettingsView({ accountLabel, onSignOut }: { accountLabel: string; onSig
 
       <section className="panel settings-panel">
         <div className="panel-header">
-          <span>API Key 与 Provider</span>
-          <strong>{opsStatus ? opsStatus.userScope : "未知"}</strong>
-        </div>
-        <div className="settings-status-grid">
-          <StatusPill label="文本解析" value={opsStatus?.providers.textExtraction.provider ?? "未知"} active={Boolean(opsStatus?.providers.textExtraction.configured)} />
-          <StatusPill label="Vision" value={opsStatus?.providers.vision.provider ?? "未知"} active={Boolean(opsStatus?.providers.vision.configured)} />
-          <StatusPill label="RAG LLM" value={opsStatus?.providers.ragLlm.model ?? "未知"} active={Boolean(opsStatus?.providers.ragLlm.configured)} />
-          <StatusPill label="图片存储" value={opsStatus?.providers.storage.bucket ?? "未知"} active={Boolean(opsStatus?.providers.storage.configured)} />
-        </div>
-      </section>
-
-      <section className="panel settings-panel">
-        <div className="panel-header">
-          <span>成本控制</span>
-          <strong>今日 / 当前服务进程</strong>
-        </div>
-        <div className="settings-status-grid">
-          <Field label="RAG 查询" value={`${opsStatus?.sessionUsage.ragQueries ?? 0} / ${opsStatus?.costControls.dailyLlmLimit ?? 0}`} tone="neutral" />
-          <Field label="AI 解析" value={`${opsStatus?.sessionUsage.extractionRequests ?? 0} / ${opsStatus?.costControls.dailyVisionLimit ?? 0}`} tone="neutral" />
-          <Field label="图片上传" value={`${opsStatus?.sessionUsage.imageUploads ?? 0}`} tone="neutral" />
-          <Field label="上传上限" value={`${opsStatus?.costControls.maxUploadMb ?? 20} MB`} tone="neutral" />
-        </div>
-      </section>
-
-      <section className="panel settings-panel">
-        <div className="panel-header">
-          <span>隐私说明</span>
-          <strong>{opsStatus?.privacy.externalFactsAllowed === false ? "仅资料库" : "需检查"}</strong>
+          <span>资料使用说明</span>
+          <strong>仅基于资料库</strong>
         </div>
         <div className="settings-copy">
           <p>{publicDemoMode ? "当前为合成数据演示模式，不启用图片存储或外部模型服务。" : "截图和文本会存入后端；图片预览使用短期 signed URL。"}</p>
-          <p>点击 AI 解析或问资料库时，系统只把必要的图片、文本或检索上下文发送给已配置的模型服务。</p>
+          <p>点击 AI 解析或问资料库时，系统只会使用完成任务所需的图片、文本或检索上下文。</p>
           <p>问资料库不允许补充资料库以外的事实、实时行情或投资建议。</p>
         </div>
       </section>
-    </div>
-  );
-}
-
-function StatusPill({ label, value, active }: { label: string; value: string; active: boolean }) {
-  return (
-    <div className="field">
-      <span>{label}</span>
-      <strong className={active ? "tone-positive" : "tone-warning"}>{active ? value : `${value} 未配置`}</strong>
     </div>
   );
 }

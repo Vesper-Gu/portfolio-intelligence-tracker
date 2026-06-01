@@ -286,7 +286,23 @@ function usageValue(usage: DailyCapabilityUsage, capability: CapabilityName) {
 function seedDemoAcceptedHoldings(state: MockUserState) {
   const accepted = [
     { id: "ING-1024", action: "加仓" as const, summary: "KOL 资料记录了 NVDA 的增持观点。" },
-    { id: "ING-1026", action: "新建仓" as const, summary: "基金披露中新增 SMH 持仓记录。" }
+    { id: "ING-1026", action: "新建仓" as const, summary: "基金披露中新增 SMH 持仓记录。" },
+    { id: "ING-1027", action: "加仓" as const, summary: "研究文章认为 AMD AI 加速器需求强于预期，适合回调加仓。" },
+    { id: "ING-1028", action: "减仓" as const, summary: "Macro 来源因交付和利润率压力减持 TSLA，并保留观察。" },
+    { id: "ING-1029", action: "持有" as const, summary: "个人研究笔记认为 BTC ETF 流入稳定，但波动回落前不继续加仓。" },
+    { id: "ING-1030", action: "持有" as const, summary: "研究文章认为 ETH 质押和 L2 费用增长仍有支撑，维持当前敞口。" },
+    { id: "ING-1032", action: "持有" as const, summary: "KOL 继续将 MSFT 作为 AI 基础设施核心持仓。" },
+    { id: "ING-1033", action: "观察" as const, summary: "Macro 来源观察 GOOGL 的 AI 搜索利润率压力。" },
+    { id: "ING-1034", action: "观察" as const, summary: "截图资料将 NET 加入 Cloud infrastructure 观察名单。" },
+    { id: "ING-1035", action: "持有" as const, summary: "13F 显示 MSFT 仍为前五大持仓，季度内未变动。" },
+    { id: "ING-1036", action: "观察" as const, summary: "个人笔记认为 NVDA 逻辑仍在，但估值偏高，等待回调。" },
+    { id: "ING-1037", action: "新建仓" as const, summary: "研究文章将 META 作为 AI software 新建仓候选。" },
+    { id: "ING-1038", action: "风险" as const, summary: "Macro 来源提示 MSTR 是高 beta BTC proxy，需要控制风险预算。" },
+    { id: "ING-1039", action: "加仓" as const, summary: "13F sector memo 显示 AMD 小幅加仓。" },
+    { id: "ING-1041", action: "持有" as const, summary: "KOL 认为 BTC 仍可作为核心持有，但暂不新增。" },
+    { id: "ING-1042", action: "持有" as const, summary: "个人笔记维持 ETH 敞口，等待费用增长进一步确认。" },
+    { id: "ING-1044", action: "持有" as const, summary: "研究文章认为 SMH 适合持有半导体广度敞口。" },
+    { id: "ING-1045", action: "观察" as const, summary: "个人笔记将 AAPL 保留观察，等待 AI 设备周期证据。" }
   ];
 
   for (const seed of accepted) {

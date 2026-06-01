@@ -12,7 +12,7 @@ export interface ExtractionCandidate {
   providerError?: string;
 }
 
-const knownTickers = ["NVDA", "TSLA", "MSTR", "SMH", "AMD", "BTC", "ETH", "AAPL"];
+const knownTickers = ["NVDA", "TSLA", "MSTR", "SMH", "AMD", "BTC", "ETH", "AAPL", "NET", "META", "GOOGL", "MSFT"];
 const ignoredUppercaseTerms = new Set(["AI", "API", "OCR", "SEC", "URL", "PNG", "JPEG", "WEBP", "UNKNOWN"]);
 
 export function extractIngestCandidate(item: IngestItem): ExtractionCandidate {
