@@ -144,6 +144,8 @@ test("RAG retrieval does not expose another verified user's evidence", async () 
 });
 
 test("demo auth serves synthetic positions and isolates each browser session", async () => {
+  const originalDemoRagLlm = process.env.ENABLE_DEMO_RAG_LLM;
+  delete process.env.ENABLE_DEMO_RAG_LLM;
   const app = buildApp({
     authMode: "demo",
     authVerifier: () => "unused",
@@ -229,6 +231,58 @@ test("demo auth serves synthetic positions and isolates each browser session", a
   assert.ok(userB.ingestItems.length >= 8);
   assert.ok(userA.userScope.startsWith("demo-"));
   assert.notEqual(userA.userScope, userB.userScope);
+
+  if (originalDemoRagLlm === undefined) {
+    delete process.env.ENABLE_DEMO_RAG_LLM;
+  } else {
+    process.env.ENABLE_DEMO_RAG_LLM = originalDemoRagLlm;
+  }
+});
+
+test("demo auth can enable grounded LLM answers when explicitly configured", async () => {
+  const originalDemoRagLlm = process.env.ENABLE_DEMO_RAG_LLM;
+  const originalRagLlmApiKey = process.env.RAG_LLM_API_KEY;
+  process.env.ENABLE_DEMO_RAG_LLM = "true";
+  process.env.RAG_LLM_API_KEY = "test-key";
+
+  try {
+    const app = buildApp({
+      authMode: "demo",
+      authVerifier: () => "unused",
+      ragAnswerGenerator: {
+        async generate(input) {
+          return `自然回答：${input.intent}。NVDA 来自 @Investor_X，动作为加仓。`;
+        }
+      }
+    });
+    const headers = { "x-demo-session-id": "session-charlie-0003" };
+
+    const opsStatus = (await app.inject({ method: "GET", url: "/ops/status", headers })).json();
+    assert.equal(opsStatus.providers.ragLlm.configured, true);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/rag/query",
+      headers,
+      payload: { query: "NVDA 当前有哪些证据？" }
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.json().answerMode, "llm");
+    assert.match(response.json().answer, /^自然回答/);
+  } finally {
+    if (originalDemoRagLlm === undefined) {
+      delete process.env.ENABLE_DEMO_RAG_LLM;
+    } else {
+      process.env.ENABLE_DEMO_RAG_LLM = originalDemoRagLlm;
+    }
+
+    if (originalRagLlmApiKey === undefined) {
+      delete process.env.RAG_LLM_API_KEY;
+    } else {
+      process.env.RAG_LLM_API_KEY = originalRagLlmApiKey;
+    }
+  }
 });
 
 test("demo static shell can load before a browser session is created", async () => {

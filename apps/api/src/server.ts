@@ -21,11 +21,14 @@ const repository = createRepository({
 });
 const auth = createAuthConfiguration(process.env);
 const demoMode = auth.mode === "demo";
+const demoRagLlmEnabled = process.env.ENABLE_DEMO_RAG_LLM === "true";
 const imageUploader = demoMode ? undefined : createSupabaseStorageUploaderFromEnv(process.env);
 const extractionProvider = createExtractionProviderFromEnv(demoMode ? {} : process.env, {
   readImage: imageUploader?.downloadImage.bind(imageUploader)
 });
-const ragAnswerGenerator = demoMode ? undefined : createRagAnswerGeneratorFromEnv(process.env);
+const ragAnswerGenerator = demoMode && !demoRagLlmEnabled
+  ? undefined
+  : createRagAnswerGeneratorFromEnv(process.env);
 
 const app = buildApp({ corsOrigin, repository, imageUploader, extractionProvider, ragAnswerGenerator, authMode: auth.mode, authVerifier: auth.verifier });
 

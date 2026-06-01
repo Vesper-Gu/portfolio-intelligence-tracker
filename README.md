@@ -157,6 +157,7 @@ npm run eval:rag --workspace @pit/api
 | 文本解析模型 | `DEEPSEEK_API_KEY` |
 | 图片解析模型 | `VISION_PROVIDER=kimi`, `MOONSHOT_API_KEY` |
 | RAG 自然语言生成 | `RAG_LLM_API_KEY`；未配置时使用确定性答案 |
+| 公开 Demo 启用 RAG LLM | `ENABLE_DEMO_RAG_LLM=true`，且后端必须配置 `RAG_LLM_API_KEY` 或 `DEEPSEEK_API_KEY` |
 
 安全要求：
 
@@ -167,7 +168,7 @@ npm run eval:rag --workspace @pit/api
 
 ## Demo 部署
 
-仓库提供 [`render.yaml`](./render.yaml)，用于部署无密钥公开演示服务：
+仓库提供 [`render.yaml`](./render.yaml)，用于部署公开演示服务：
 
 ```text
 Build:  VITE_DEMO_MODE=true npm install && VITE_DEMO_MODE=true npm run build

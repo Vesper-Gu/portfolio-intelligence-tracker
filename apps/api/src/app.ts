@@ -60,11 +60,12 @@ export function buildApp(options: BuildAppOptions = {}) {
     ? { mode: options.authMode ?? "external", verifier: options.authVerifier }
     : createAuthConfiguration(process.env);
   const demoMode = auth.mode === "demo";
+  const demoRagLlmEnabled = process.env.ENABLE_DEMO_RAG_LLM === "true";
   const imageUploader = demoMode ? undefined : options.imageUploader;
   const extractionProvider = demoMode
     ? new RuleExtractionProvider()
     : options.extractionProvider ?? createExtractionProviderFromEnv(process.env);
-  const ragAnswerGenerator = demoMode ? undefined : options.ragAnswerGenerator;
+  const ragAnswerGenerator = demoMode && !demoRagLlmEnabled ? undefined : options.ragAnswerGenerator;
   const app = Fastify({
     logger: process.env.LOG_LEVEL ? { level: process.env.LOG_LEVEL } : false
   });
@@ -130,7 +131,7 @@ export function buildApp(options: BuildAppOptions = {}) {
         provider: !demoMode ? process.env.VISION_PROVIDER || "disabled" : "disabled"
       },
       ragLlm: {
-        configured: !demoMode && Boolean(process.env.RAG_LLM_API_KEY || process.env.DEEPSEEK_API_KEY),
+        configured: (!demoMode || demoRagLlmEnabled) && Boolean(process.env.RAG_LLM_API_KEY || process.env.DEEPSEEK_API_KEY),
         provider: process.env.RAG_LLM_BASE_URL || process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
         model: process.env.RAG_LLM_MODEL || process.env.DEEPSEEK_MODEL || "deepseek-v4-flash"
       },
