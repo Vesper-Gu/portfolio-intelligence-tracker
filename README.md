@@ -142,6 +142,7 @@ npm run dev
 npm run typecheck
 npm run test
 npm run build
+npm run eval:rag --workspace @pit/api
 ```
 
 ## 私有部署配置

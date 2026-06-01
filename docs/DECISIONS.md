@@ -1,5 +1,13 @@
 # 决策记录
 
+## 2026-06-01：为 RAG 建立固定评估集
+
+背景：检索、LLM 生成、groundedness 校验和 pgvector 混合检索都已有实现，但缺少一套稳定问题集衡量回答质量是否退化。
+
+决策：新增 `runRagEvaluation` 和 `npm run eval:rag --workspace @pit/api`。评估集覆盖单标的查询、证据查询、连续追问、风险、来源追溯、无资料问题、合法 LLM 回答和两类幻觉回退。测试门禁直接复用同一个 runner。
+
+理由：后续调整检索权重、接入真实 embedding 或更换 LLM 时，可以用固定基线判断召回、回退和耗时是否变差，而不是靠手工试问。
+
 ## 2026-06-01：RAG 回答校验扩展到 ticker、动作、时间和来源
 
 背景：已有 groundedness 规则能拦截资料库外 ticker 和外部建议，但 LLM 仍可能在同一 ticker 下编造动作、时间或来源。

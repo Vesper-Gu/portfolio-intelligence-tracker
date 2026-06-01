@@ -598,7 +598,7 @@ LLM 生成结果会在返回前执行 groundedness 校验。没有 citations 时
 
 建议下一刀补齐 retrieval 评估与 portfolio / position 的数据管理边界：
 
-- 建立关键词检索与混合检索的固定评估集，比较召回率、延迟和 embedding 成本。
+- 继续扩展 `npm run eval:rag --workspace @pit/api` 的固定评估集，比较关键词检索与混合检索的召回率、延迟和 embedding 成本。
 - 增加 seed/demo/smoke reset 规范。
 - 为 positions 增加显式时间窗口和来源过滤。
 - 明确 position 与 future portfolio snapshot 是否需要独立持久化表。
