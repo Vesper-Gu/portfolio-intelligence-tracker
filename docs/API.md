@@ -546,8 +546,8 @@ Provider 行为：
 - 检索层：通过独立 `RagRetrievalRepository` 先执行用户 scope、ticker 和候选窗口过滤，再批量读取关联记录，避免 extraction candidates 的 N+1 查询。
 - 混合检索：默认使用可解释关键词分数；显式配置 `RAG_VECTOR_RETRIEVAL=true` 和 embedding provider 后，对过滤后的文档增量建立 pgvector 索引，并合并向量相似度分数。向量服务失败时自动回退关键词检索。
 - 意图层：根据问题识别 `position_summary`、`evidence`、`risk`、`recent_changes`、`source_trace` 或 `overview`。
-- 生成层：默认按问题意图使用不同的确定性中文模板；配置 `RAG_LLM_API_KEY` 后，会把问题、意图、命中证据、结构化资料库上下文和确定性基线答案交给 OpenAI-compatible LLM 生成更自然的最终回答。
-- 边界层：LLM 只能基于本次检索出的资料库上下文和证据回答；不得补充外部事实、实时行情、常识推断或投资建议。证据不足时必须说明资料库不足。
+- 生成层：默认按问题意图使用不同的确定性中文模板；有 citations 且配置 `RAG_LLM_API_KEY` 后，才会把问题、意图、命中证据、结构化资料库上下文和确定性基线答案交给 OpenAI-compatible LLM 生成更自然的最终回答。
+- 边界层：LLM 只能基于本次检索出的资料库上下文和证据回答；不得补充外部事实、实时行情、常识推断或投资建议。证据不足时不调用生成模型，直接返回模板答案。
 - 引用层：返回命中的 position、holding、event、ingest item 或 candidate。
 - 范围层：问题中命中 ticker 时只回答该 ticker；未知 ticker 没有资料时明确提示未找到相关记录。
 - 回退层：LLM 未配置或调用失败时，自动返回确定性模板答案。
@@ -592,7 +592,7 @@ Provider 行为：
 - `snippet`
 - `score`
 
-LLM 生成结果会在返回前执行 groundedness 校验。没有 citations、出现资料库外 ticker，或输出外部事实与投资建议表达时，接口返回确定性模板答案并将 `answerMode` 标记为 `template`。
+LLM 生成结果会在返回前执行 groundedness 校验。没有 citations 时不会调用生成模型；有 citations 时，答案必须引用至少一个证据中的 ticker。若答案提到动作、日期/时间或来源，这些值必须能在资料库上下文或 citations 中找到。缺失 citations、出现资料库外 ticker / 动作 / 时间 / 来源，或输出外部事实与投资建议表达时，接口返回确定性模板答案并将 `answerMode` 标记为 `template`。
 
 ## 下一步 API
 

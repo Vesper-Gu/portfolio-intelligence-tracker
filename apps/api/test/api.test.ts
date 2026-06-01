@@ -626,7 +626,7 @@ test("POST /rag/query can use an injected LLM answer generator", async () => {
   const app = buildApp({
     ragAnswerGenerator: {
       async generate(input) {
-        return `LLM ANSWER: ${input.intent} / ${input.citations.length}`;
+        return `LLM ANSWER: ${input.intent} / ${input.citations.length}。NVDA 来自 @Investor_X，动作为加仓。`;
       }
     }
   });
@@ -645,6 +645,30 @@ test("POST /rag/query can use an injected LLM answer generator", async () => {
 
   assert.equal(response.statusCode, 200);
   assert.match(response.json().answer, /^LLM ANSWER: evidence/);
+  assert.equal(response.json().answerMode, "llm");
+});
+
+test("POST /rag/query skips LLM generation when no citations are available", async () => {
+  let called = false;
+  const app = buildApp({
+    ragAnswerGenerator: {
+      async generate() {
+        called = true;
+        return "should not be used";
+      }
+    }
+  });
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/rag/query",
+    payload: { query: "ZZZZ 有哪些证据？" }
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(called, false);
+  assert.equal(response.json().answerMode, "template");
+  assert.deepEqual(response.json().citations, []);
 });
 
 test("POST /rag/query does not send storage object paths to the answer layer", async () => {
@@ -759,6 +783,32 @@ test("POST /rag/query falls back when LLM answer contains an unsupported ticker"
   assert.equal(response.statusCode, 200);
   assert.equal(response.json().answerMode, "template");
   assert.doesNotMatch(response.json().answer, /TSLA/);
+});
+
+test("POST /rag/query falls back when LLM answer contains unsupported action time or source", async () => {
+  const app = buildApp({
+    ragAnswerGenerator: {
+      async generate() {
+        return "NVDA 在 2030-01-01 来自 Rumor Desk，动作是减仓。";
+      }
+    }
+  });
+  await app.inject({ method: "POST", url: "/ingest-items/ING-1024/extract" });
+  await app.inject({
+    method: "POST",
+    url: "/ingest-items/ING-1024/accept",
+    payload: { reviewer: "local-user" }
+  });
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/rag/query",
+    payload: { query: "NVDA 有哪些证据？" }
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().answerMode, "template");
+  assert.doesNotMatch(response.json().answer, /2030-01-01|Rumor Desk|减仓/);
 });
 
 test("POST /rag/query uses conversation history for follow-up questions", async () => {

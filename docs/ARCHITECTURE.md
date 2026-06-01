@@ -131,7 +131,7 @@ HTTP router
 - `generate_grounded_answer`：基于检索证据生成回答；provider 不可用时回退模板。
 - `validate_grounding`：校验 LLM 输出是否越过资料库证据边界。
 
-`image_upload` 仍作为基础设施 capability 经过同一 Runner。Harness 负责原子额度预占、持久化每日 usage、脱敏 trace、超时、有限重试、provider / skill 版本、估算成本和错误分类。trace 不保存原始正文、截图、prompt、signed URL 或密钥。RAG 的 LLM 生成结果还会经过 groundedness 校验；缺少 citations、出现资料库外 ticker 或外部事实/投资建议表达时，回退到确定性模板答案。
+`image_upload` 仍作为基础设施 capability 经过同一 Runner。Harness 负责原子额度预占、持久化每日 usage、脱敏 trace、超时、有限重试、provider / skill 版本、估算成本和错误分类。trace 不保存原始正文、截图、prompt、signed URL 或密钥。RAG 无 citations 时不调用生成模型；有 citations 时，LLM 输出还会经过 groundedness 校验，确保回答引用证据中的 ticker，且提到的动作、日期/时间和来源都存在于资料库上下文或 citations 中。校验失败时回退确定性模板答案。
 
 ### Retrieval 边界
 
