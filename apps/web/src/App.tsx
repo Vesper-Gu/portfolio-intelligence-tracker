@@ -258,11 +258,11 @@ function getFollowUpSuggestions(message?: RagChatMessage) {
   const ticker = citations.map(getCitationPrimaryTicker).find((value) => value !== "资料");
 
   if (!message || citations.length === 0) {
-    return ["当前资料库在关注什么？", "最近有什么新变化？", "有什么需要留意的风险？"];
+    return ["我整理过哪些标的？", "最近有什么新变化？", "有什么需要留意的风险？"];
   }
 
   return [
-    ticker ? `为什么关注 ${ticker}？` : "这个判断来自哪些资料？",
+    ticker ? `为什么会关注 ${ticker}？` : "这个判断来自哪些资料？",
     ticker ? `${ticker} 最近有什么变化？` : "最近有什么变化？",
     ticker ? `${ticker} 有什么需要留意？` : "有什么需要留意的风险？"
   ];
@@ -470,7 +470,7 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
   const title = useMemo(() => {
     if (view === "ingest") return "录入 / 资料确认队列";
     if (view === "library") return "标的资料库 / Ticker Library";
-    if (view === "rag") return "问资料库 / Evidence-grounded Answers";
+    if (view === "rag") return "问投研资料 / Evidence-grounded Answers";
     if (view === "settings") return "账户与数据";
     if (view === "sources") return "来源设置 / KOL 与数据源管理";
     return "总览 / 今日资料库";
@@ -587,7 +587,7 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
           ingestItemId={evidenceIngestId}
           onAskTicker={(ticker) => {
             setEvidenceIngestId(null);
-            openRagWithQuery(`${ticker} 当前资料库怎么看？`);
+            openRagWithQuery(`目前整理的资料怎么看 ${ticker}？`);
           }}
           onClose={() => setEvidenceIngestId(null)}
           onOpenTicker={(ticker) => {
@@ -669,7 +669,7 @@ function RagView({
   const [messages, setMessages] = useState<RagChatMessage[]>([]);
   const [status, setStatus] = useState("等待查询");
   const [isLoading, setIsLoading] = useState(false);
-  const suggestedQueries = ["当前资料库在关注什么？", "最近有什么新变化？", "有什么需要留意的风险？", "为什么资料库会关注 NVDA？"];
+  const suggestedQueries = ["我整理过哪些标的？", "最近有什么新变化？", "有什么需要留意的风险？", "为什么会关注 NVDA？"];
 
   useEffect(() => {
     setQuery(initialQuery);
@@ -686,7 +686,7 @@ function RagView({
     }
 
     setIsLoading(true);
-    setStatus("正在结合上下文检索资料库...");
+    setStatus("正在检索已整理资料...");
     const userMessage: RagChatMessage = {
       id: `user-${Date.now()}`,
       role: "user",
@@ -719,7 +719,7 @@ function RagView({
         {
           id: `assistant-error-${Date.now()}`,
           role: "assistant",
-          content: "结论：\n这次没有完成查询。\n\n需要复核：\n查询服务或网络可能暂时不可用，这不代表资料库没有相关资料。\n\n可继续追问：\n稍后重试，或先切换到标的资料库查看已确认记录。"
+          content: "结论：\n这次没有完成查询。\n\n需要复核：\n查询服务或网络可能暂时不可用，这不代表你整理的资料里没有相关记录。\n\n可继续追问：\n稍后重试，或先切换到标的资料库查看已确认记录。"
         }
       ]);
       setStatus("查询失败，可稍后重试");
@@ -735,10 +735,10 @@ function RagView({
     <div className="rag-grid">
       <section className="panel rag-query-panel">
         <div className="panel-header">
-          <span>问资料库</span>
+          <span>问投研资料</span>
           <strong>{status}</strong>
         </div>
-        <p className="rag-boundary">回答只使用你的资料库内容；没有证据时会直接说明资料不足，不补外部行情或投资建议。</p>
+        <p className="rag-boundary">回答只使用你已经录入并确认的投研资料；没有依据时会直接说明资料不足，不补外部行情或投资建议。</p>
         <div className="rag-suggestion-list" aria-label="常用问题">
           {suggestedQueries.map((suggestion) => (
             <button key={suggestion} onClick={() => setQuery(suggestion)} type="button">
@@ -758,7 +758,7 @@ function RagView({
           <textarea
             className="terminal-textarea"
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="围绕已确认资料连续追问，例如：为什么资料库会关注 SMH？"
+            placeholder="围绕已确认资料连续追问，例如：为什么会关注 SMH？"
             value={query}
           />
           <button className="save-button" disabled={isLoading} type="submit">
@@ -779,7 +779,7 @@ function RagView({
             {messages.map((message) => (
               <div className={`chat-message ${message.role}`} key={message.id}>
                 <div className="chat-message-meta">
-                  <span>{message.role === "user" ? "你" : "资料库助手"}</span>
+                  <span>{message.role === "user" ? "你" : "投研资料助手"}</span>
                   {message.generatedAt && (
                     <strong>{message.answerMode === "llm" ? "LLM+资料库" : "规则模板"} · {formatShortDate(message.generatedAt)}</strong>
                   )}
@@ -806,7 +806,7 @@ function RagView({
         {!latestAssistant?.citations || latestAssistant.citations.length === 0 ? (
           <div className="rag-empty-state">
             <strong>暂无命中证据</strong>
-            <p>可以先录入并加入资料库，或把问题问得更具体。系统不会用资料库以外的信息补答案。</p>
+            <p>可以先录入并确认相关资料，或把问题问得更具体。系统不会用你已整理资料以外的信息补答案。</p>
           </div>
         ) : (
           <div className="citation-list">
@@ -1253,7 +1253,7 @@ function TickerLibraryView({
                   </div>
                 </div>
                 <div className="ticker-detail-actions">
-                  <button onClick={() => onAsk(`${detailTicker} 当前资料库怎么看？`)} type="button">问这个标的</button>
+                  <button onClick={() => onAsk(`目前整理的资料怎么看 ${detailTicker}？`)} type="button">问这个标的</button>
                   <button onClick={() => onAsk(`${detailTicker} 最近有什么变化？`)} type="button">问最近变化</button>
                   <button onClick={() => onAsk(`${detailTicker} 有哪些证据？`)} type="button">问证据来源</button>
                 </div>
@@ -1303,7 +1303,7 @@ function TickerLibraryView({
                 >
                   查看详情
                 </button>
-                <button onClick={() => onAsk(`${ticker} 当前资料库怎么看？`)} type="button">问这个标的</button>
+                <button onClick={() => onAsk(`目前整理的资料怎么看 ${ticker}？`)} type="button">问这个标的</button>
                 <button onClick={() => onAsk(`${ticker} 有哪些证据？`)} type="button">查看依据</button>
                 {tickerHoldings[0] && (
                   <button onClick={() => onOpenEvidence(tickerHoldings[0].sourceIngestItemId)} type="button">打开资料</button>
