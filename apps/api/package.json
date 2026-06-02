@@ -14,6 +14,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit",
     "eval:rag": "npm run build --workspace @pit/shared && npm run build && node dist/src/rag/evaluateRag.js",
+    "smoke:beta": "tsx src/smoke/betaAcceptance.ts",
     "test": "npm run build --workspace @pit/shared && npm run build && node --test dist/test/*.test.js"
   },
   "dependencies": {

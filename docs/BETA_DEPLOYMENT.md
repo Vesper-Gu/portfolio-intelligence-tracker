@@ -64,6 +64,27 @@ RAG_EMBEDDING_MODEL
 5. 使用未登录窗口验证业务 API 返回 `401`，不能读取资料。
 6. 检查 Render 日志不输出模型 key、signed URL 或原始资料内容。
 
+## 上线验收流程
+
+私有 Beta 对真实研究资料开放前，必须先执行 [私有 Beta 上线验收包](./BETA_ACCEPTANCE.md)。
+
+最小自动化门禁：
+
+```bash
+BETA_BASE_URL=https://portfolio-intelligence-tracker-beta.onrender.com \
+BETA_USER_A_TOKEN=<supabase-user-a-access-token> \
+BETA_USER_B_TOKEN=<supabase-user-b-access-token> \
+npm run smoke:beta --workspace @pit/api
+```
+
+默认 smoke 不会删除任何账户资料。只有在确认 User A 为专用验收账户并已备份后，才允许设置：
+
+```text
+BETA_SMOKE_ALLOW_DELETE=true
+```
+
+图片上传和 signed URL 验收为可选项，配置 `BETA_SMOKE_IMAGE_PATH` 后执行。
+
 ## 当前成本控制
 
 Beta 默认将截图上限限制为 `10 MB`，每日 extraction 限额为 `20`，RAG 查询限额为 `100`。额度计量保存在 `daily_capability_usage`，通过原子预占避免并发请求绕过上限，服务重启后不会清零。解析、上传和问答会向 `capability_traces` 写入脱敏运行轨迹，包括 skill、provider、版本、有限重试次数和粗粒度估算成本；扩大用户范围前仍需接入告警和供应商账单对账。

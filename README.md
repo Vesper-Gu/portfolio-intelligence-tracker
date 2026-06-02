@@ -165,6 +165,7 @@ npm run eval:rag --workspace @pit/api
 - 不要将真实截图、用户导出数据、signed URL、密钥或本地 `.env` 提交至 Git。
 - 上线处理真实资料前，应验证 RLS、私有 Storage、额度限制、备份告警和正式隐私政策。
 - 启用 Vision 或 LLM provider 时，部署者必须向用户说明资料会发送到所配置的模型服务商。
+- 私有 Beta 对真实资料开放前，应按 [私有 Beta 上线验收包](./docs/BETA_ACCEPTANCE.md) 跑完自动化 smoke 和人工检查。
 
 ## Demo 部署
 
@@ -193,3 +194,4 @@ Health: /health
 | [安全设计](./docs/SECURITY.md) | 密钥、上传与访问控制要求 |
 | [技术选型](./docs/TECH_STACK.md) | 技术栈与开发命令 |
 | [私有 Beta 部署](./docs/BETA_DEPLOYMENT.md) | 真实资料部署边界与验证清单 |
+| [Beta 上线验收](./docs/BETA_ACCEPTANCE.md) | 私有 Beta 自动化 smoke、手工检查和上线门禁 |
