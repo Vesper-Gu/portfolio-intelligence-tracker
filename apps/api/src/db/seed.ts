@@ -1,6 +1,9 @@
 import { ingestItems, sources } from "@pit/shared";
+import { loadLocalEnv } from "../env.js";
 import { createDatabase, createPostgresClient } from "./connection.js";
 import { ingestItemsTable, sourcesTable } from "./schema.js";
+
+loadLocalEnv();
 
 const databaseUrl = process.env.DATABASE_URL;
 const seedUserId = process.env.SEED_USER_ID ?? "local-dev-user";

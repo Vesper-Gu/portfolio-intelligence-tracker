@@ -1,7 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadLocalEnv } from "../env.js";
 import { createPostgresClient } from "./connection.js";
+
+loadLocalEnv();
 
 const databaseUrl = process.env.DATABASE_URL;
 
