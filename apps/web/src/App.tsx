@@ -1053,7 +1053,8 @@ function TickerLibraryView({
   const [actionFilter, setActionFilter] = useState<"all" | SignalAction>("all");
   const [sourceTypeFilter, setSourceTypeFilter] = useState<"all" | ResearchSourceType>("all");
   const [timeWindow, setTimeWindow] = useState<"all" | "7d" | "30d">("all");
-  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+  const [selectedTickerForRecords, setSelectedTickerForRecords] = useState<string | null>(null);
+  const [selectedRecordLimit, setSelectedRecordLimit] = useState(20);
   const [archivingTicker, setArchivingTicker] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1063,7 +1064,8 @@ function TickerLibraryView({
     setActionFilter("all");
     setSourceTypeFilter("all");
     setTimeWindow("all");
-    setSelectedTicker(focusedTicker);
+    setSelectedTickerForRecords(focusedTicker);
+    setSelectedRecordLimit(20);
   }, [focusedTicker]);
 
   const activeHoldings = holdings.filter((holding) => holding.status === "已确认");
@@ -1122,18 +1124,18 @@ function TickerLibraryView({
     ...filteredHoldings.map((holding) => holding.ticker),
     ...filteredEvents.map((event) => event.ticker)
   ])].sort();
-  const detailTicker = selectedTicker && visibleTickers.includes(selectedTicker)
-    ? selectedTicker
-    : visibleTickers[0] ?? null;
-  const detailPosition = detailTicker ? positions.find((item) => item.ticker === detailTicker) : undefined;
-  const detailHoldings = detailTicker
+  const recordsTicker = selectedTickerForRecords && visibleTickers.includes(selectedTickerForRecords)
+    ? selectedTickerForRecords
+    : null;
+  const recordsPosition = recordsTicker ? positions.find((item) => item.ticker === recordsTicker) : undefined;
+  const recordsHoldings = recordsTicker
     ? filteredHoldings
-      .filter((holding) => holding.ticker === detailTicker)
+      .filter((holding) => holding.ticker === recordsTicker)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     : [];
-  const detailEvents = detailTicker
+  const recordsEvents = recordsTicker
     ? filteredEvents
-      .filter((event) => event.ticker === detailTicker)
+      .filter((event) => event.ticker === recordsTicker)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     : [];
 
@@ -1142,6 +1144,8 @@ function TickerLibraryView({
     setActionFilter("all");
     setSourceTypeFilter("all");
     setTimeWindow("all");
+    setSelectedTickerForRecords(null);
+    setSelectedRecordLimit(20);
   }
 
   async function handleArchiveTicker(ticker: string, tickerHoldings: HoldingRecord[]) {
@@ -1155,7 +1159,7 @@ function TickerLibraryView({
     try {
       await Promise.all(tickerHoldings.map((holding) => archiveHolding(holding.id)));
       onLibraryChanged();
-      if (selectedTicker === ticker) setSelectedTicker(null);
+      if (selectedTickerForRecords === ticker) setSelectedTickerForRecords(null);
     } catch (error) {
       console.error("Archive holdings failed", error);
       window.alert("移出资料库失败，请检查服务状态后重试。");
@@ -1235,130 +1239,259 @@ function TickerLibraryView({
         </section>
       ) : (
         <>
-          {detailTicker && (
-            <section className="panel ticker-detail-panel">
-              <div className="panel-header">
-                <span>{detailTicker} 资料链路</span>
-                <strong>{detailHoldings.length} 条资料 · {detailEvents.length} 条事件</strong>
-              </div>
-              <div className="ticker-detail-body">
-                <div className="ticker-detail-summary">
-                  <Field label="聚合方向" value={detailPosition?.netStance ?? "待聚合"} tone={detailPosition?.netStance === "看多" ? "positive" : detailPosition?.netStance === "看空" ? "negative" : "neutral"} />
-                  <Field label="最新动作" value={detailPosition?.latestAction ?? detailHoldings[0]?.lastAction ?? "暂无"} tone={actionTone(detailPosition?.latestAction ?? detailHoldings[0]?.lastAction ?? "观察")} />
-                  <Field label="来源数量" value={`${detailPosition?.sourceCount ?? new Set(detailHoldings.map((holding) => sourceDisplayName(holding))).size} 个`} tone="neutral" />
-                  <Field label="最后更新" value={detailPosition ? formatShortDate(detailPosition.lastUpdated) : detailHoldings[0] ? formatShortDate(detailHoldings[0].updatedAt) : "暂无"} tone="neutral" />
-                </div>
-                <div className="ticker-detail-columns">
-                  <div className="ticker-detail-section">
-                    <span>已确认资料</span>
-                    {detailHoldings.length === 0 ? (
-                      <p>当前筛选下没有已确认资料。</p>
-                    ) : (
-                      detailHoldings.map((holding) => (
-                        <button className="ticker-detail-row" key={holding.id} onClick={() => onOpenEvidence(holding.sourceIngestItemId)} type="button">
-                          <strong className={toneClass[actionTone(holding.lastAction)]}>{holding.lastAction} · {sourceDisplayName(holding)}</strong>
-                          <span>{formatSourceType(holding.sourceType)} · {holding.publishedAt ?? holding.reportingPeriod ?? formatShortDate(holding.updatedAt)}</span>
-                          <em>打开原始证据</em>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                  <div className="ticker-detail-section">
-                    <span>事件时间线</span>
-                    {detailEvents.length === 0 ? (
-                      <p>当前筛选下没有确认事件。</p>
-                    ) : (
-                      detailEvents.map((event) => (
-                        <button className="ticker-detail-row" key={event.id} onClick={() => onOpenEvidence(event.ingestItemId)} type="button">
-                          <strong className={toneClass[actionTone(event.action)]}>{event.action} · {formatShortDate(event.createdAt)}</strong>
-                          <span>{event.id}</span>
-                          <em>{hideConfidenceText(event.summary)} · 打开原始证据</em>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-                <div className="ticker-detail-actions">
-                  <button onClick={() => onAsk(`目前整理的资料怎么看 ${detailTicker}？`)} type="button">问这个标的</button>
-                  <button onClick={() => onAsk(`${detailTicker} 最近有什么变化？`)} type="button">问最近变化</button>
-                  <button onClick={() => onAsk(`${detailTicker} 有哪些证据？`)} type="button">问证据来源</button>
-                  <button
-                    className="danger-outline"
-                    disabled={archivingTicker === detailTicker || detailHoldings.length === 0}
-                    onClick={() => handleArchiveTicker(detailTicker, detailHoldings)}
-                    type="button"
-                  >
-                    {archivingTicker === detailTicker ? "正在移出" : "移出资料库"}
-                  </button>
-                </div>
-              </div>
-            </section>
+          <div className="library-grid">
+            {visibleTickers.map((ticker) => {
+              const position = positions.find((item) => item.ticker === ticker);
+              const tickerHoldings = filteredHoldings.filter((holding) => holding.ticker === ticker);
+              const tickerEvents = filteredEvents
+                .filter((event) => event.ticker === ticker)
+                .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+              const latestEvent = tickerEvents[0];
+
+              return (
+                <TickerSummaryCard
+                  isArchiving={archivingTicker === ticker}
+                  isSelected={recordsTicker === ticker}
+                  key={ticker}
+                  latestEvent={latestEvent}
+                  onArchive={() => handleArchiveTicker(ticker, tickerHoldings)}
+                  onAsk={() => onAsk(`目前整理的资料怎么看 ${ticker}？`)}
+                  onShowRecords={() => {
+                    setSelectedTickerForRecords(ticker);
+                    setSelectedRecordLimit(20);
+                  }}
+                  position={position}
+                  ticker={ticker}
+                  tickerHoldings={tickerHoldings}
+                />
+              );
+            })}
+          </div>
+          {recordsTicker && (
+            <TickerRecordsPanel
+              events={recordsEvents}
+              holdings={recordsHoldings}
+              limit={selectedRecordLimit}
+              onAsk={() => onAsk(`目前整理的资料怎么看 ${recordsTicker}？`)}
+              onClose={() => setSelectedTickerForRecords(null)}
+              onLoadMore={() => setSelectedRecordLimit((currentLimit) => currentLimit + 20)}
+              onOpenEvidence={onOpenEvidence}
+              position={recordsPosition}
+              ticker={recordsTicker}
+            />
           )}
-
-        <div className="library-grid">
-      {visibleTickers.map((ticker) => {
-        const position = positions.find((item) => item.ticker === ticker);
-        const tickerHoldings = filteredHoldings.filter((holding) => holding.ticker === ticker);
-        const tickerEvents = filteredEvents
-          .filter((event) => event.ticker === ticker)
-          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        const latestEvent = tickerEvents[0];
-
-        return (
-          <section className="panel ticker-card" key={ticker}>
-            <div className="panel-header">
-              <span>{ticker}</span>
-              <strong>{position?.netStance ?? "待聚合"}</strong>
-            </div>
-            <div className="ticker-card-body">
-              <div className="ticker-card-summary">
-                <Field label="最新动作" value={position?.latestAction ?? tickerHoldings[0]?.lastAction ?? "暂无"} tone={actionTone(position?.latestAction ?? tickerHoldings[0]?.lastAction ?? "观察")} />
-                <Field label="资料数量" value={`${tickerHoldings.length} 条已确认`} tone="neutral" />
-                <Field label="来源" value={position?.sources.map(formatSourceForUser).join(" / ") || "暂无"} tone="neutral" />
-              </div>
-              <div className="ticker-event-list">
-                <span>最近资料</span>
-                {latestEvent ? (
-                  tickerEvents.slice(0, 3).map((event) => (
-                    <div className="ticker-event-row" key={event.id}>
-                      <strong className={toneClass[actionTone(event.action)]}>{event.action} · {formatShortDate(event.createdAt)}</strong>
-                      <em>{hideConfidenceText(event.summary)}</em>
-                    </div>
-                  ))
-                ) : (
-                  <p>暂无确认事件。</p>
-                )}
-              </div>
-              <div className="ticker-card-actions">
-                <button
-                  className={detailTicker === ticker ? "active" : undefined}
-                  onClick={() => setSelectedTicker(ticker)}
-                  type="button"
-                >
-                  查看详情
-                </button>
-                <button onClick={() => onAsk(`目前整理的资料怎么看 ${ticker}？`)} type="button">问这个标的</button>
-                <button onClick={() => onAsk(`${ticker} 有哪些证据？`)} type="button">查看依据</button>
-                {tickerHoldings[0] && (
-                  <button onClick={() => onOpenEvidence(tickerHoldings[0].sourceIngestItemId)} type="button">打开资料</button>
-                )}
-                <button
-                  className="danger-outline"
-                  disabled={archivingTicker === ticker || tickerHoldings.length === 0}
-                  onClick={() => handleArchiveTicker(ticker, tickerHoldings)}
-                  type="button"
-                >
-                  {archivingTicker === ticker ? "正在移出" : "移出资料库"}
-                </button>
-              </div>
-            </div>
-          </section>
-        );
-      })}
-        </div>
         </>
       )}
     </>
+  );
+}
+
+function TickerSummaryCard({
+  isArchiving,
+  isSelected,
+  latestEvent,
+  onArchive,
+  onAsk,
+  onShowRecords,
+  position,
+  ticker,
+  tickerHoldings
+}: {
+  isArchiving: boolean;
+  isSelected: boolean;
+  latestEvent?: HoldingEvent;
+  onArchive: () => void;
+  onAsk: () => void;
+  onShowRecords: () => void;
+  position?: PortfolioPosition;
+  ticker: string;
+  tickerHoldings: HoldingRecord[];
+}) {
+  const latestHolding = tickerHoldings[0];
+  const latestAction = position?.latestAction ?? latestHolding?.lastAction ?? "暂无";
+  const sourceCount = position?.sourceCount ?? new Set(tickerHoldings.map((holding) => sourceDisplayName(holding))).size;
+  const lastUpdated = position?.lastUpdated ?? latestHolding?.updatedAt;
+  const latestSummary = latestEvent
+    ? hideConfidenceText(latestEvent.summary)
+    : latestHolding
+      ? `${sourceDisplayName(latestHolding)} · ${formatSourceType(latestHolding.sourceType)}`
+      : "暂无已确认资料。";
+
+  return (
+    <section className={isSelected ? "panel ticker-card selected" : "panel ticker-card"}>
+      <div className="panel-header">
+        <span>{ticker}</span>
+        <strong>{position?.netStance ?? "待聚合"}</strong>
+      </div>
+      <div className="ticker-card-body">
+        <div className="ticker-card-summary compact">
+          <Field label="最新动作" value={latestAction} tone={actionTone(latestAction)} />
+          <Field label="资料数量" value={`${tickerHoldings.length} 条`} tone="neutral" />
+          <Field label="来源数量" value={`${sourceCount} 个`} tone="neutral" />
+          <Field label="最后更新" value={lastUpdated ? formatShortDate(lastUpdated) : "暂无"} tone="neutral" />
+        </div>
+        <div className="ticker-latest-signal">
+          <span>最近信号</span>
+          <strong className={toneClass[actionTone(latestEvent?.action ?? latestHolding?.lastAction ?? "观察")]}>
+            {latestEvent ? `${latestEvent.action} · ${formatShortDate(latestEvent.createdAt)}` : latestHolding ? `${latestHolding.lastAction} · ${sourceDisplayName(latestHolding)}` : "暂无"}
+          </strong>
+          <p>{latestSummary}</p>
+        </div>
+        <div className="ticker-card-actions">
+          <button className={isSelected ? "active" : undefined} onClick={onShowRecords} type="button">查看记录</button>
+          <button onClick={onAsk} type="button">问这个标的</button>
+          <button
+            className="danger-outline"
+            disabled={isArchiving || tickerHoldings.length === 0}
+            onClick={onArchive}
+            type="button"
+          >
+            {isArchiving ? "正在移出" : "移出资料库"}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TickerRecordsPanel({
+  events,
+  holdings,
+  limit,
+  onAsk,
+  onClose,
+  onLoadMore,
+  onOpenEvidence,
+  position,
+  ticker
+}: {
+  events: HoldingEvent[];
+  holdings: HoldingRecord[];
+  limit: number;
+  onAsk: () => void;
+  onClose: () => void;
+  onLoadMore: () => void;
+  onOpenEvidence: (id: string) => void;
+  position?: PortfolioPosition;
+  ticker: string;
+}) {
+  const eventByHoldingId = new Map<string, HoldingEvent[]>();
+  const [actionFilter, setActionFilter] = useState<"all" | SignalAction>("all");
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<"all" | ResearchSourceType>("all");
+  const [timeWindow, setTimeWindow] = useState<"all" | "7d" | "30d">("all");
+
+  for (const event of events) {
+    eventByHoldingId.set(event.holdingId, [...(eventByHoldingId.get(event.holdingId) ?? []), event]);
+  }
+
+  const cutoff = timeWindow === "all"
+    ? null
+    : Date.now() - (timeWindow === "7d" ? 7 : 30) * 24 * 60 * 60 * 1000;
+  const filteredHoldings = holdings.filter((holding) => {
+    const latestEvent = [...(eventByHoldingId.get(holding.id) ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    const action = latestEvent?.action ?? holding.lastAction;
+    const eventTime = latestEvent?.createdAt ?? holding.updatedAt;
+    const matchesAction = actionFilter === "all" || action === actionFilter;
+    const matchesSourceType = sourceTypeFilter === "all" || holding.sourceType === sourceTypeFilter;
+    const matchesTime = !cutoff || new Date(eventTime).getTime() >= cutoff;
+
+    return matchesAction && matchesSourceType && matchesTime;
+  });
+  const visibleHoldings = filteredHoldings.slice(0, limit);
+
+  return (
+    <section className="panel ticker-records-panel">
+      <div className="panel-header">
+        <span>{ticker} 记录</span>
+        <strong>{filteredHoldings.length}/{holdings.length} 条资料 · {position?.netStance ?? "待聚合"}</strong>
+      </div>
+      <div className="ticker-records-summary">
+        <Field label="聚合方向" value={position?.netStance ?? "待聚合"} tone={position ? stanceTone(position.netStance) : "neutral"} />
+        <Field label="最新动作" value={position?.latestAction ?? "暂无"} tone={actionTone(position?.latestAction ?? "观察")} />
+        <Field label="来源数量" value={`${position?.sourceCount ?? new Set(holdings.map((holding) => sourceDisplayName(holding))).size} 个`} tone="neutral" />
+        <Field label="最后更新" value={position?.lastUpdated ? formatShortDate(position.lastUpdated) : "暂无"} tone="neutral" />
+      </div>
+      <div className="ticker-record-filter-bar">
+        <label>
+          <span>时间</span>
+          <select onChange={(event) => setTimeWindow(event.target.value as "all" | "7d" | "30d")} value={timeWindow}>
+            <option value="all">全部时间</option>
+            <option value="7d">最近 7 天</option>
+            <option value="30d">最近 30 天</option>
+          </select>
+        </label>
+        <label>
+          <span>动作</span>
+          <select onChange={(event) => setActionFilter(event.target.value as "all" | SignalAction)} value={actionFilter}>
+            <option value="all">全部动作</option>
+            {signalActionOptions.map((action) => (
+              <option key={action} value={action}>{action}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>来源类型</span>
+          <select onChange={(event) => setSourceTypeFilter(event.target.value as "all" | ResearchSourceType)} value={sourceTypeFilter}>
+            <option value="all">全部来源</option>
+            {researchSourceOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="ticker-records-toolbar">
+        <button onClick={onAsk} type="button">问这个标的</button>
+        <button onClick={onClose} type="button">收起记录</button>
+      </div>
+      <div className="ticker-record-list">
+        {visibleHoldings.length === 0 ? (
+          <p className="empty-state">当前筛选下没有这个标的的已确认资料。</p>
+        ) : (
+          visibleHoldings.map((holding) => (
+            <TickerRecordRow
+              events={eventByHoldingId.get(holding.id) ?? []}
+              holding={holding}
+              key={holding.id}
+              onOpenEvidence={onOpenEvidence}
+            />
+          ))
+        )}
+      </div>
+      {filteredHoldings.length > visibleHoldings.length && (
+        <button className="panel-link-button ticker-record-load-more" onClick={onLoadMore} type="button">
+          继续加载 {Math.min(20, filteredHoldings.length - visibleHoldings.length)} 条
+        </button>
+      )}
+    </section>
+  );
+}
+
+function TickerRecordRow({
+  events,
+  holding,
+  onOpenEvidence
+}: {
+  events: HoldingEvent[];
+  holding: HoldingRecord;
+  onOpenEvidence: (id: string) => void;
+}) {
+  const latestEvent = [...events].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const summary = latestEvent?.summary
+    ? hideConfidenceText(latestEvent.summary)
+    : `${sourceDisplayName(holding)} · ${formatSourceType(holding.sourceType)}`;
+  const date = holding.publishedAt ?? holding.reportingPeriod ?? formatShortDate(latestEvent?.createdAt ?? holding.updatedAt);
+
+  return (
+    <button className="ticker-record-row" onClick={() => onOpenEvidence(holding.sourceIngestItemId)} type="button">
+      <div>
+        <strong className={toneClass[actionTone(latestEvent?.action ?? holding.lastAction)]}>
+          {latestEvent?.action ?? holding.lastAction}
+        </strong>
+        <span>{sourceDisplayName(holding)} · {formatSourceType(holding.sourceType)} · {date}</span>
+      </div>
+      <p>{summary}</p>
+      <em>打开完整资料</em>
+    </button>
   );
 }
 
