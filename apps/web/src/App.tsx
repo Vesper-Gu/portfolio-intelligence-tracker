@@ -1781,15 +1781,6 @@ function IngestView({
     };
   }
 
-  if (!selected) {
-    return (
-      <section className="panel">
-        <div className="panel-header">待加入资料</div>
-        <p className="empty-state">暂无待处理记录</p>
-      </section>
-    );
-  }
-
   return (
     <div className="ingest-grid">
       <div className="ingest-list-column">
@@ -1875,186 +1866,196 @@ function IngestView({
             <strong>{statusText}</strong>
           </div>
           <div className="queue-list">
-            {items.map((item) => (
-              <button
-                className={item.id === selected.id ? "queue-item active" : "queue-item"}
-                key={item.id}
-                onClick={() => setSelectedId(item.id)}
-                type="button"
-              >
-                <span>{item.id}</span>
-                <strong>{item.ticker}</strong>
-                <em className={toneClass[ingestStatusTone[item.status]]}>{item.status}</em>
-              </button>
-            ))}
+            {items.length === 0 ? (
+              <p className="empty-state">暂无待处理记录。可以直接在上方新增资料。</p>
+            ) : (
+              items.map((item) => (
+                <button
+                  className={item.id === selectedId ? "queue-item active" : "queue-item"}
+                  key={item.id}
+                  onClick={() => setSelectedId(item.id)}
+                  type="button"
+                >
+                  <span>{item.id}</span>
+                  <strong>{item.ticker}</strong>
+                  <em className={toneClass[ingestStatusTone[item.status]]}>{item.status}</em>
+                </button>
+              ))
+            )}
           </div>
         </section>
       </div>
 
       <section className="panel review-panel">
         <div className="panel-header">解析预览</div>
-        <div className="review-source">{sourceDisplayName(selected)} · {formatSourceType(selected.sourceType)} · {selected.kind}</div>
-        {selected.kind === "screenshot" && selected.storageObjectKey && (
-          <div className="image-preview-block">
-            <button disabled={isMutating} onClick={handleLoadImagePreview} type="button">生成图片预览</button>
-            {previewStatus && <span>{previewStatus}</span>}
-            {previewImageUrl && <img alt={selected.fileName ?? "上传图片预览"} src={previewImageUrl} />}
-          </div>
-        )}
-        <div className="source-summary">
-          <span>资料摘要</span>
-          <p>{getUserFacingSourceSummary(selected)}</p>
-        </div>
-        <div className="field-grid">
-          <Field label="Ticker" value={selected.ticker} tone="positive" />
-          <Field label="Status" value={selected.status} tone={ingestStatusTone[selected.status]} />
-          <Field label="识别动作" value={selected.extractedAction ?? "待解析"} tone={selected.extractedAction ? "warning" : "neutral"} />
-          <Field label="资料结论" value={selected.extractionSummary ? hideConfidenceText(selected.extractionSummary) : "尚未解析"} tone={selected.extractionSummary ? "positive" : "neutral"} />
-          <Field label="资料日期" value={selected.publishedAt ?? "待补充"} tone="neutral" />
-          <Field label="报告期" value={selected.reportingPeriod ?? "不适用"} tone="neutral" />
-          <Field label="加入位置" value="标的资料库" tone="neutral" />
-        </div>
-        <div className="edit-grid">
-          <label>
-            <span>来源主体</span>
-            <input
-              className="terminal-input"
-              onChange={(event) => setEditSourceName(event.target.value)}
-              placeholder="KOL 或基金名称"
-              value={editSourceName}
-            />
-          </label>
-          <label>
-            <span>来源类型</span>
-            <select
-              className="terminal-select"
-              onChange={(event) => setEditSourceType(event.target.value as ResearchSourceType)}
-              value={editSourceType}
-            >
-              {researchSourceOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>资料日期</span>
-            <input
-              className="terminal-input"
-              onChange={(event) => setEditPublishedAt(event.target.value)}
-              type="date"
-              value={editPublishedAt}
-            />
-          </label>
-          <label>
-            <span>报告期</span>
-            <input
-              className="terminal-input"
-              onChange={(event) => setEditReportingPeriod(event.target.value)}
-              placeholder="例如 2026 Q1"
-              value={editReportingPeriod}
-            />
-          </label>
-          <label>
-            <span>Ticker</span>
-            <input
-              className="terminal-input"
-              onChange={(event) => setEditTicker(event.target.value)}
-              value={editTicker}
-            />
-          </label>
-          <label>
-            <span>Action</span>
-            <select
-              className="terminal-select"
-              onChange={(event) => setEditAction(event.target.value as SignalAction)}
-              value={editAction}
-            >
-              {signalActions.map((action) => (
-                <option key={action} value={action}>{action}</option>
-              ))}
-            </select>
-          </label>
-          <label className="edit-summary">
-            <span>Summary</span>
-            <textarea
-              className="terminal-textarea"
-              onChange={(event) => setEditSummary(event.target.value)}
-              value={editSummary}
-            />
-          </label>
-        </div>
-        <div className="candidate-history">
-          <div className="candidate-history-title">候选结果历史</div>
-          {extractionCandidates.length === 0 ? (
-            <p>暂无候选结果</p>
-          ) : (
-            extractionCandidates.slice(0, 3).map((candidate) => (
-              <div className="candidate-row" key={candidate.id}>
-                <div className="candidate-row-header">
-                  <strong>{candidate.ticker} / {candidate.action}</strong>
-                  <button
-                    disabled={isMutating}
-                    onClick={() => applyCandidateToEditor(candidate)}
-                    type="button"
-                  >
-                    应用
-                  </button>
-                </div>
-                <span>
-                  {candidate.provider} · <em className={toneClass[candidateStatusTone(candidate)]}>{describeCandidateStatus(candidate)}</em>
-                  {candidate.providerError ? ` · ${candidate.providerError}` : ""} ·{" "}
-                  {new Date(candidate.createdAt).toLocaleString("zh-CN")}
-                </span>
+        {!selected ? (
+          <p className="empty-state">新增资料后会在这里显示解析预览、候选结果和加入资料库操作。</p>
+        ) : (
+          <>
+            <div className="review-source">{sourceDisplayName(selected)} · {formatSourceType(selected.sourceType)} · {selected.kind}</div>
+            {selected.kind === "screenshot" && selected.storageObjectKey && (
+              <div className="image-preview-block">
+                <button disabled={isMutating} onClick={handleLoadImagePreview} type="button">生成图片预览</button>
+                {previewStatus && <span>{previewStatus}</span>}
+                {previewImageUrl && <img alt={selected.fileName ?? "上传图片预览"} src={previewImageUrl} />}
               </div>
-            ))
-          )}
-        </div>
-        <div className="button-row">
-          <button
-            disabled={isMutating}
-            onClick={handleExtractSelected}
-            type="button"
-          >
-            {extractionCandidates.length > 0 ? "重新解析" : "AI 解析"}
-          </button>
-          <button
-            disabled={isMutating || selected.status === "已接受"}
-            onClick={handleAcceptSelected}
-            type="button"
-          >
-            加入资料库
-          </button>
-          <button
-            disabled={isMutating}
-            onClick={handleSaveEdits}
-            type="button"
-          >
-            保存修改
-          </button>
-          <button
-            disabled={isMutating || selected.status === "已驳回"}
-            onClick={() => runMutation(
-              () => rejectIngestItem(selected.id, {
-                reviewer: "local-user",
-                reason: "人工复核判定为暂不采纳"
-              }),
-              `${selected.id} 已驳回`
             )}
-            type="button"
-          >
-            驳回
-          </button>
-          <button
-            disabled={isMutating}
-            onClick={() => runMutation(
-              () => updateIngestItem(selected.id, { status: "需人工确认" }),
-              `${selected.id} 已转入人工处理`
-            )}
-            type="button"
-          >
-            手动处理
-          </button>
-        </div>
+            <div className="source-summary">
+              <span>资料摘要</span>
+              <p>{getUserFacingSourceSummary(selected)}</p>
+            </div>
+            <div className="field-grid">
+              <Field label="Ticker" value={selected.ticker} tone="positive" />
+              <Field label="Status" value={selected.status} tone={ingestStatusTone[selected.status]} />
+              <Field label="识别动作" value={selected.extractedAction ?? "待解析"} tone={selected.extractedAction ? "warning" : "neutral"} />
+              <Field label="资料结论" value={selected.extractionSummary ? hideConfidenceText(selected.extractionSummary) : "尚未解析"} tone={selected.extractionSummary ? "positive" : "neutral"} />
+              <Field label="资料日期" value={selected.publishedAt ?? "待补充"} tone="neutral" />
+              <Field label="报告期" value={selected.reportingPeriod ?? "不适用"} tone="neutral" />
+              <Field label="加入位置" value="标的资料库" tone="neutral" />
+            </div>
+            <div className="edit-grid">
+              <label>
+                <span>来源主体</span>
+                <input
+                  className="terminal-input"
+                  onChange={(event) => setEditSourceName(event.target.value)}
+                  placeholder="KOL 或基金名称"
+                  value={editSourceName}
+                />
+              </label>
+              <label>
+                <span>来源类型</span>
+                <select
+                  className="terminal-select"
+                  onChange={(event) => setEditSourceType(event.target.value as ResearchSourceType)}
+                  value={editSourceType}
+                >
+                  {researchSourceOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>资料日期</span>
+                <input
+                  className="terminal-input"
+                  onChange={(event) => setEditPublishedAt(event.target.value)}
+                  type="date"
+                  value={editPublishedAt}
+                />
+              </label>
+              <label>
+                <span>报告期</span>
+                <input
+                  className="terminal-input"
+                  onChange={(event) => setEditReportingPeriod(event.target.value)}
+                  placeholder="例如 2026 Q1"
+                  value={editReportingPeriod}
+                />
+              </label>
+              <label>
+                <span>Ticker</span>
+                <input
+                  className="terminal-input"
+                  onChange={(event) => setEditTicker(event.target.value)}
+                  value={editTicker}
+                />
+              </label>
+              <label>
+                <span>Action</span>
+                <select
+                  className="terminal-select"
+                  onChange={(event) => setEditAction(event.target.value as SignalAction)}
+                  value={editAction}
+                >
+                  {signalActions.map((action) => (
+                    <option key={action} value={action}>{action}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="edit-summary">
+                <span>Summary</span>
+                <textarea
+                  className="terminal-textarea"
+                  onChange={(event) => setEditSummary(event.target.value)}
+                  value={editSummary}
+                />
+              </label>
+            </div>
+            <div className="candidate-history">
+              <div className="candidate-history-title">候选结果历史</div>
+              {extractionCandidates.length === 0 ? (
+                <p>暂无候选结果</p>
+              ) : (
+                extractionCandidates.slice(0, 3).map((candidate) => (
+                  <div className="candidate-row" key={candidate.id}>
+                    <div className="candidate-row-header">
+                      <strong>{candidate.ticker} / {candidate.action}</strong>
+                      <button
+                        disabled={isMutating}
+                        onClick={() => applyCandidateToEditor(candidate)}
+                        type="button"
+                      >
+                        应用
+                      </button>
+                    </div>
+                    <span>
+                      {candidate.provider} · <em className={toneClass[candidateStatusTone(candidate)]}>{describeCandidateStatus(candidate)}</em>
+                      {candidate.providerError ? ` · ${candidate.providerError}` : ""} ·{" "}
+                      {new Date(candidate.createdAt).toLocaleString("zh-CN")}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="button-row">
+              <button
+                disabled={isMutating}
+                onClick={handleExtractSelected}
+                type="button"
+              >
+                {extractionCandidates.length > 0 ? "重新解析" : "AI 解析"}
+              </button>
+              <button
+                disabled={isMutating || selected.status === "已接受"}
+                onClick={handleAcceptSelected}
+                type="button"
+              >
+                加入资料库
+              </button>
+              <button
+                disabled={isMutating}
+                onClick={handleSaveEdits}
+                type="button"
+              >
+                保存修改
+              </button>
+              <button
+                disabled={isMutating || selected.status === "已驳回"}
+                onClick={() => runMutation(
+                  () => rejectIngestItem(selected.id, {
+                    reviewer: "local-user",
+                    reason: "人工复核判定为暂不采纳"
+                  }),
+                  `${selected.id} 已驳回`
+                )}
+                type="button"
+              >
+                驳回
+              </button>
+              <button
+                disabled={isMutating}
+                onClick={() => runMutation(
+                  () => updateIngestItem(selected.id, { status: "需人工确认" }),
+                  `${selected.id} 已转入人工处理`
+                )}
+                type="button"
+              >
+                手动处理
+              </button>
+            </div>
+          </>
+        )}
       </section>
     </div>
   );
