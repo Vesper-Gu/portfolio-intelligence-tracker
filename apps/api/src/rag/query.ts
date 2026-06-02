@@ -199,7 +199,7 @@ async function generateAnswerWithFallback(
 function classifyIntent(query: string): RagIntent {
   const normalized = query.toUpperCase();
 
-  if (/(证据|依据|来源|引用|原文|CITATION|EVIDENCE|SOURCE)/i.test(query)) return "evidence";
+  if (/(证据|依据|来源|引用|原文|为什么|为何|判断来自|关注.*原因|CITATION|EVIDENCE|SOURCE)/i.test(query)) return "evidence";
   if (/(风险|减仓|卖出|冲突|问题|下调|RISK|REDUCE|SELL|TRIM|CONFLICT)/i.test(query)) return "risk";
   if (/(最近|变化|变动|新|上次|什么时候|时间|RECENT|CHANGE|LATEST|WHEN)/i.test(query)) return "recent_changes";
   if (/(截图|图片|上传|TRACE|追溯|链路|SOURCE TRACE|IMAGE|SCREENSHOT)/i.test(query)) return "source_trace";
@@ -275,15 +275,15 @@ function scoreDocument(document: RagDocument, tokens: string[], scopedTickers: s
 
 function buildAnswer(context: RagContext) {
   if (context.unknownTickers.length && !context.scopedTickers.length) {
-    return `当前资料中没有找到 ${context.unknownTickers.join(" / ")} 的相关记录。请先录入并接受相关资料后再查询。`;
+    return buildMissingDataAnswer(context.unknownTickers);
   }
 
   const scoped = scopeData(context);
 
   if (!hasAnyScopedData(scoped)) {
     return context.scopedTickers.length
-      ? `当前资料中没有找到 ${context.scopedTickers.join(" / ")} 的相关记录。请先录入并接受相关资料后再查询。`
-      : "当前资料中没有找到能回答该问题的记录。请先录入并接受更多资料后再查询。";
+      ? buildMissingDataAnswer(context.scopedTickers)
+      : buildMissingDataAnswer([]);
   }
 
   if (context.intent === "evidence") return buildEvidenceAnswer(scoped, context.citations);
@@ -340,7 +340,7 @@ function hasAnyScopedData(scoped: ReturnType<typeof scopeData>) {
 }
 
 function buildPositionSummaryAnswer(scoped: ReturnType<typeof scopeData>, citations: RagCitation[]) {
-  const lines = scoped.positions.slice(0, 4).map((position) => {
+  const conclusionLines = scoped.positions.slice(0, 4).map((position) => {
     const basis = position.eventCount > 0
       ? `${position.eventCount} 条已确认事件`
       : `${position.sourceCount} 个来源`;
@@ -350,17 +350,17 @@ function buildPositionSummaryAnswer(scoped: ReturnType<typeof scopeData>, citati
   const fallbackLines = scoped.holdings.slice(0, 4).map((holding) => (
     `${holding.ticker}：已有一条确认资料，动作是“${holding.lastAction}”，来源为 ${displaySource(holding.source, holding.sourceName)}。`
   ));
-  const sourceLine = citations.length
+  const basisLine = citations.length
     ? "可以继续查看下方证据卡片，核对原始资料和确认记录。"
     : "当前没有命中可引用证据，建议先补充或接受更多资料。";
 
-  return [
-    "结论：",
-    ...(lines.length ? lines : fallbackLines),
-    "",
-    "依据：",
-    sourceLine
-  ].join("\n");
+  return formatStructuredAnswer([
+    ["结论", conclusionLines.length ? conclusionLines : fallbackLines],
+    ["依据", [basisLine]],
+    ["需要复核", ["如果同一标的后续出现减仓、风险或冲突资料，需要回到原始证据再判断。"]],
+    ["资料缺口", ["当前回答只覆盖已确认资料；未录入或未确认的研究材料不会参与判断。"]],
+    ["可继续追问", ["可以问“有什么需要留意的风险？”、“最近有什么变化？”或指定某个标的继续查证。"]]
+  ]);
 }
 
 function buildEvidenceAnswer(scoped: ReturnType<typeof scopeData>, citations: RagCitation[]) {
@@ -381,8 +381,14 @@ function buildEvidenceAnswer(scoped: ReturnType<typeof scopeData>, citations: Ra
     : "当前没有额外引用命中。";
 
   return evidenceLines.length
-    ? ["找到以下证据：", ...evidenceLines, "", citationLine].join("\n")
-    : "当前资料中没有找到可展示的来源证据。";
+    ? formatStructuredAnswer([
+      ["结论", ["找到以下证据：这些资料能解释当前回答。"]],
+      ["依据", evidenceLines],
+      ["需要复核", [citationLine]],
+      ["资料缺口", ["如果你要判断完整仓位变化，还需要补充尚未录入或尚未确认的资料。"]],
+    ["可继续追问", ["可以继续问“有什么需要留意？”、“最近有什么变化？”或“这个判断来自哪些资料？”。"]]
+    ])
+    : buildMissingDataAnswer([]);
 }
 
 function buildRiskAnswer(scoped: ReturnType<typeof scopeData>, citations: RagCitation[]) {
@@ -395,15 +401,27 @@ function buildRiskAnswer(scoped: ReturnType<typeof scopeData>, citations: RagCit
 
   if (!lines.length) {
     return scoped.positions.length || scoped.holdings.length
-      ? "结论：当前已确认资料里，没有看到明确的风险、减仓或冲突信号。\n\n建议：如果你关注某个标的，可以继续追问“某某有哪些风险证据”。"
-      : "当前资料中没有找到风险相关记录。";
+      ? formatStructuredAnswer([
+        ["结论", ["当前已确认资料里，没有看到明确的风险、减仓或冲突信号。"]],
+        ["依据", ["已确认记录中没有出现风险、减仓、卖出或冲突相关动作。"]],
+        ["需要复核", ["这不代表标的没有风险，只代表当前资料库没有记录到相关证据。"]],
+        ["资料缺口", ["如果你有新的 KOL 观点、13F、截图或研究笔记，应先录入并确认。"]],
+        ["可继续追问", ["可以指定标的追问，例如“NVDA 有哪些风险证据？”。"]]
+      ])
+      : buildMissingDataAnswer([]);
   }
 
   const citationLine = citations.length
     ? "建议打开下方证据卡片，重点核对原文语气、时间和来源。"
     : "建议继续打开来源记录复核原文。";
 
-  return ["结论：当前看到以下风险线索。", "", ...lines.slice(0, 6), "", citationLine].join("\n");
+  return formatStructuredAnswer([
+    ["结论", ["当前看到以下风险线索。"]],
+    ["依据", lines.slice(0, 6)],
+    ["需要复核", [citationLine]],
+    ["资料缺口", ["当前只覆盖资料库中已确认或可追溯的记录，未录入资料不会参与判断。"]],
+    ["可继续追问", ["可以问“这些风险来自哪些来源？”或“最近是否有变化？”。"]]
+  ]);
 }
 
 function buildRecentChangesAnswer(scoped: ReturnType<typeof scopeData>) {
@@ -413,13 +431,24 @@ function buildRecentChangesAnswer(scoped: ReturnType<typeof scopeData>) {
     `- ${formatDate(event.createdAt)} · ${event.ticker}：${event.action}。${event.summary}`
   ));
 
-  if (lines.length) return ["最近变化：", ...lines, "", "这些变化只来自已确认资料，不包含外部实时信息。"].join("\n");
+  if (lines.length) return formatStructuredAnswer([
+    ["结论", ["最近变化：已确认资料中出现了以下更新。"]],
+    ["依据", lines],
+    ["需要复核", ["这些变化只来自已确认资料，不包含外部实时信息。"]],
+    ["资料缺口", ["如果想覆盖最新市场观点，需要先录入并确认新的资料。"]],
+    ["可继续追问", ["可以问“这些变化来自哪些资料？”或“有什么需要留意的风险？”。"]]
+  ]);
 
   return sortedHoldings.length
-    ? ["最近已确认记录：", ...sortedHoldings.slice(0, 5).map((holding) => (
+    ? formatStructuredAnswer([
+      ["结论", ["最近已确认记录如下。"]],
+      ["依据", sortedHoldings.slice(0, 5).map((holding) => (
       `- ${formatDate(holding.updatedAt)} · ${holding.ticker}：${holding.lastAction}，来源 ${displaySource(holding.source, holding.sourceName)}。`
-    ))].join("\n")
-    : "当前资料中没有找到最近变化记录。";
+      ))],
+      ["资料缺口", ["当前资料中没有更详细的事件变化记录。"]],
+      ["可继续追问", ["可以指定一个标的继续问“为什么资料库会关注它？”。"]]
+    ])
+    : buildMissingDataAnswer([]);
 }
 
 function buildSourceTraceAnswer(scoped: ReturnType<typeof scopeData>) {
@@ -433,8 +462,14 @@ function buildSourceTraceAnswer(scoped: ReturnType<typeof scopeData>) {
   });
 
   return lines.length
-    ? ["来源追溯：", ...lines, "", "如果需要核对原文，可以从下方证据卡片进入对应资料。"].join("\n")
-    : "当前资料中没有找到可追溯的来源记录。";
+    ? formatStructuredAnswer([
+      ["结论", ["来源追溯：当前问题命中了这些可追溯资料。"]],
+      ["依据", lines],
+      ["需要复核", ["如果需要核对原文，可以从下方证据卡片进入对应资料。"]],
+      ["资料缺口", ["截图上传资料只展示脱敏后的来源信息，不暴露内部存储路径。"]],
+      ["可继续追问", ["可以问“这条资料支持什么动作？”或“有没有相反证据？”。"]]
+    ])
+    : buildMissingDataAnswer([]);
 }
 
 function buildOverviewAnswer(scoped: ReturnType<typeof scopeData>) {
@@ -444,8 +479,33 @@ function buildOverviewAnswer(scoped: ReturnType<typeof scopeData>) {
   const activeCount = scoped.holdings.length;
 
   return positionLines.length
-    ? [`当前资料库里有 ${activeCount} 条已确认记录，聚合后主要看到这些标的：`, ...positionLines, "", "这些结论只代表资料库中已确认的记录，不包含资料库以外的信息。"].join("\n")
-    : `当前资料库里有 ${activeCount} 条已确认记录，但还没有可展示的聚合仓位。`;
+    ? formatStructuredAnswer([
+      ["结论", [`当前资料库里有 ${activeCount} 条已确认记录，聚合后主要看到这些标的。`]],
+      ["依据", positionLines],
+      ["需要复核", ["这些结论只代表资料库中已确认的记录，不包含资料库以外的信息。"]],
+      ["资料缺口", ["如果某个标的没有出现，通常是因为还没有录入或确认相关资料。"]],
+      ["可继续追问", ["可以指定一个标的问“为什么资料库会关注它？”或“最近有什么变化？”。"]]
+    ])
+    : buildMissingDataAnswer([]);
+}
+
+function buildMissingDataAnswer(tickers: string[]) {
+  const target = tickers.length ? tickers.join(" / ") : "这个问题";
+
+  return formatStructuredAnswer([
+    ["结论", [`当前资料库没有找到 ${target} 的相关记录。`]],
+    ["依据", ["本次查询没有命中可引用的已确认资料。"]],
+    ["需要复核", ["这不是投资判断，只表示资料库里暂时没有足够证据。"]],
+    ["资料缺口", ["请先录入相关 KOL 观点、13F、截图或研究笔记，并在录入页加入资料库。"]],
+    ["可继续追问", ["可以换一个已录入的标的，或先去录入资料后再回来查询。"]]
+  ]);
+}
+
+function formatStructuredAnswer(sections: Array<[string, string[]]>) {
+  return sections
+    .filter(([, lines]) => lines.length > 0)
+    .map(([title, lines]) => `${title}：\n${lines.join("\n")}`)
+    .join("\n\n");
 }
 
 function buildContextSummary(scoped: ReturnType<typeof scopeData>) {

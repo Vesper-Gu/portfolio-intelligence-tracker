@@ -201,8 +201,19 @@ function formatCitationEntityType(entityType: RagQueryResponse["citations"][numb
 function getUserFacingCitationSnippet(citation: RagQueryResponse["citations"][number]) {
   return hideConfidenceText(citation.snippet)
     .replace(/storage:\/\/\S+/g, "截图上传")
-    .replace(/sourceIngestItemId=/g, "来源记录 ")
-    .replace(/ingestItemId=/g, "来源记录 ")
+    .replace(/sourceIngestItemId=\S+/g, "来源记录")
+    .replace(/ingestItemId=\S+/g, "来源记录")
+    .replace(/\bsourceType=\S*/g, "")
+    .replace(/\bpublishedAt=\S*/g, "")
+    .replace(/\breportingPeriod=\S*/g, "")
+    .replace(/\bkind=text/g, "文本资料")
+    .replace(/\bkind=link/g, "链接资料")
+    .replace(/\bkind=screenshot/g, "截图资料")
+    .replace(/\bprovider=rule_v1/g, "规则解析")
+    .replace(/\bprovider=deepseek_text/g, "文本模型解析")
+    .replace(/\bprovider=vision_llm/g, "图片模型解析")
+    .replace(/\brawText=/g, "原文 ")
+    .replace(/\bsummary=/g, "摘要 ")
     .replace(/netStance=/g, "方向 ")
     .replace(/latestAction=/g, "最新动作 ")
     .replace(/sources=/g, "来源 ")
@@ -211,12 +222,89 @@ function getUserFacingCitationSnippet(citation: RagQueryResponse["citations"][nu
     .replace(/action=/g, "动作 ")
     .replace(/status=/g, "状态 ")
     .replace(/source=/g, "来源 ")
+    .replace(/\b(?:ING|HEV|HLD)-\d+\b/g, "资料记录")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
 function getCitationPrimaryTicker(citation: RagQueryResponse["citations"][number]) {
   const text = `${citation.title} ${citation.snippet}`;
   return text.match(/\b[A-Z]{2,5}(?:\.[A-Z]{2})?\b/)?.[0] ?? "资料";
+}
+
+function getCitationDisplayTitle(citation: RagQueryResponse["citations"][number]) {
+  const ticker = getCitationPrimaryTicker(citation);
+  const type = formatCitationEntityType(citation.entityType);
+
+  return ticker === "资料" ? type : `${ticker} · ${type}`;
+}
+
+function getCitationEvidenceMeta(citation: RagQueryResponse["citations"][number]) {
+  const snippet = citation.snippet;
+  const source = snippet.match(/source=([^=]+?)(?:\s+sourceType=|\s+publishedAt=|\s+reportingPeriod=|\s+kind=|\s+status=|$)/)?.[1]?.trim();
+  const action = snippet.match(/action=([^\s;]+)/)?.[1]?.trim();
+  const date = snippet.match(/(?:publishedAt|updated)=([^\s;]+)/)?.[1]?.trim();
+  const parts = [
+    source && source !== "截图上传" ? source : undefined,
+    action ? `动作 ${action}` : undefined,
+    date ? formatShortDate(date) : undefined
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(" · ") : "可追溯资料";
+}
+
+function getFollowUpSuggestions(message?: RagChatMessage) {
+  const citations = message?.citations ?? [];
+  const ticker = citations.map(getCitationPrimaryTicker).find((value) => value !== "资料");
+
+  if (!message || citations.length === 0) {
+    return ["当前资料库在关注什么？", "最近有什么新变化？", "有什么需要留意的风险？"];
+  }
+
+  return [
+    ticker ? `为什么关注 ${ticker}？` : "这个判断来自哪些资料？",
+    ticker ? `${ticker} 最近有什么变化？` : "最近有什么变化？",
+    ticker ? `${ticker} 有什么需要留意？` : "有什么需要留意的风险？"
+  ];
+}
+
+function renderChatContent(message: RagChatMessage) {
+  if (message.role === "user") {
+    return message.content.split("\n").map((line, index) => (
+      <p key={`${message.id}-${index}`}>{line}</p>
+    ));
+  }
+
+  const blocks = message.content.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+
+  return blocks.map((block, index) => {
+    const [firstLine, ...rest] = block.split("\n");
+    const sectionMatch = firstLine.match(/^(结论|依据|需要复核|资料缺口|可继续追问|最近变化|来源追溯)：\s*(.*)$/);
+
+    if (!sectionMatch) {
+      return (
+        <div className="answer-section plain" key={`${message.id}-block-${index}`}>
+          {block.split("\n").map((line, lineIndex) => (
+            <p key={`${message.id}-plain-${index}-${lineIndex}`}>{line}</p>
+          ))}
+        </div>
+      );
+    }
+
+    const [, title, inlineText] = sectionMatch;
+    const lines = [inlineText, ...rest].map((line) => line.trim()).filter(Boolean);
+
+    return (
+      <div className="answer-section" key={`${message.id}-section-${title}-${index}`}>
+        <strong>{title}</strong>
+        {lines.length ? lines.map((line, lineIndex) => (
+          <p className={line.startsWith("- ") ? "answer-bullet" : undefined} key={`${message.id}-${title}-${lineIndex}`}>
+            {line.replace(/^- /, "")}
+          </p>
+        )) : null}
+      </div>
+    );
+  });
 }
 
 type NewIngestMode = CreateIngestItemRequest["kind"];
@@ -581,7 +669,7 @@ function RagView({
   const [messages, setMessages] = useState<RagChatMessage[]>([]);
   const [status, setStatus] = useState("等待查询");
   const [isLoading, setIsLoading] = useState(false);
-  const suggestedQueries = ["当前有哪些持仓？", "最近有什么变化？", "有哪些风险线索？", "NVDA 有哪些证据？"];
+  const suggestedQueries = ["当前资料库在关注什么？", "最近有什么新变化？", "有什么需要留意的风险？", "为什么资料库会关注 NVDA？"];
 
   useEffect(() => {
     setQuery(initialQuery);
@@ -631,16 +719,17 @@ function RagView({
         {
           id: `assistant-error-${Date.now()}`,
           role: "assistant",
-          content: "这次查询失败了，请确认 API 状态后再试。"
+          content: "结论：\n这次没有完成查询。\n\n需要复核：\n查询服务或网络可能暂时不可用，这不代表资料库没有相关资料。\n\n可继续追问：\n稍后重试，或先切换到标的资料库查看已确认记录。"
         }
       ]);
-      setStatus("RAG 查询失败，请确认 API 状态");
+      setStatus("查询失败，可稍后重试");
     } finally {
       setIsLoading(false);
     }
   }
 
   const latestAssistant = [...messages].reverse().find((message) => message.role === "assistant" && message.citations);
+  const followUpSuggestions = getFollowUpSuggestions(latestAssistant);
 
   return (
     <div className="rag-grid">
@@ -657,11 +746,19 @@ function RagView({
             </button>
           ))}
         </div>
+        <div className="rag-followup-list" aria-label="继续追问">
+          <span>继续追问</span>
+          {followUpSuggestions.map((suggestion) => (
+            <button key={suggestion} onClick={() => setQuery(suggestion)} type="button">
+              {suggestion}
+            </button>
+          ))}
+        </div>
         <form className="rag-form" onSubmit={handleSubmit}>
           <textarea
             className="terminal-textarea"
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="围绕已确认资料连续追问，例如：SMH 最近为什么被加入资料库？"
+            placeholder="围绕已确认资料连续追问，例如：为什么资料库会关注 SMH？"
             value={query}
           />
           <button className="save-button" disabled={isLoading} type="submit">
@@ -688,25 +785,29 @@ function RagView({
                   )}
                 </div>
                 <div className="chat-message-body">
-                  {message.content.split("\n").map((line, index) => (
-                    <p key={`${message.id}-${index}`}>{line}</p>
-                  ))}
+                  {renderChatContent(message)}
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="empty-state">可以连续追问当前持仓、某个标的的依据、最近变化或风险线索。后续问题会带上最近对话上下文。</p>
+          <div className="rag-empty-state">
+            <strong>还没有开始查询</strong>
+            <p>可以连续追问当前持仓、某个标的的依据、最近变化或风险线索。后续问题会带上最近对话上下文。</p>
+          </div>
         )}
       </section>
 
       <section className="panel rag-citations-panel">
         <div className="panel-header">
-          <span>依据资料</span>
+          <span>本轮证据</span>
           <strong>{latestAssistant?.citations?.length ?? 0}</strong>
         </div>
         {!latestAssistant?.citations || latestAssistant.citations.length === 0 ? (
-          <p className="empty-state">暂无依据资料。可以先录入并加入资料库，或把问题问得更具体。</p>
+          <div className="rag-empty-state">
+            <strong>暂无命中证据</strong>
+            <p>可以先录入并加入资料库，或把问题问得更具体。系统不会用资料库以外的信息补答案。</p>
+          </div>
         ) : (
           <div className="citation-list">
             {latestAssistant.citations.map((citation) => (
@@ -721,10 +822,11 @@ function RagView({
                   <span>{getCitationPrimaryTicker(citation)}</span>
                   <b>{formatCitationEntityType(citation.entityType)}</b>
                 </div>
-                <strong>{citation.title}</strong>
+                <strong>{getCitationDisplayTitle(citation)}</strong>
+                <span>{getCitationEvidenceMeta(citation)}</span>
                 <em>{getUserFacingCitationSnippet(citation)}</em>
                 <div className="citation-card-footer">
-                  <span>{citation.entityId}</span>
+                  <span>{citation.sourceIngestItemId ? "原始资料可打开" : "聚合记录"}</span>
                   {citation.sourceIngestItemId ? <b>查看原始资料</b> : <b>仅聚合记录</b>}
                 </div>
               </button>
