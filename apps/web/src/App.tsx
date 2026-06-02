@@ -20,6 +20,7 @@ import {
 } from "./mockData";
 import {
   acceptIngestItem,
+  archiveHolding,
   createIngestItem,
   deleteAccountData,
   extractIngestItem,
@@ -395,6 +396,7 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
   const [ragInitialQuery, setRagInitialQuery] = useState("当前有哪些持仓？");
   const [ragInitialQueryRevision, setRagInitialQueryRevision] = useState(0);
   const [evidenceIngestId, setEvidenceIngestId] = useState<string | null>(null);
+  const [portfolioReloadKey, setPortfolioReloadKey] = useState(0);
 
   function openRagWithQuery(query: string) {
     setRagInitialQuery(query);
@@ -443,7 +445,7 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
       });
 
     return () => controller.abort();
-  }, [view]);
+  }, [view, portfolioReloadKey]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -559,6 +561,7 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
                 setView("ingest");
               }}
               onOpenEvidence={setEvidenceIngestId}
+              onLibraryChanged={() => setPortfolioReloadKey((current) => current + 1)}
               positions={portfolioPositions}
               recentEvents={recentEvents}
             />
@@ -1030,6 +1033,7 @@ function TickerLibraryView({
   focusedTicker,
   holdings,
   onAsk,
+  onLibraryChanged,
   onOpenIngest,
   onOpenEvidence,
   positions,
@@ -1039,6 +1043,7 @@ function TickerLibraryView({
   focusedTicker: string | null;
   holdings: HoldingRecord[];
   onAsk: (query: string) => void;
+  onLibraryChanged: () => void;
   onOpenIngest: () => void;
   onOpenEvidence: (id: string) => void;
   positions: PortfolioPosition[];
@@ -1049,6 +1054,7 @@ function TickerLibraryView({
   const [sourceTypeFilter, setSourceTypeFilter] = useState<"all" | ResearchSourceType>("all");
   const [timeWindow, setTimeWindow] = useState<"all" | "7d" | "30d">("all");
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+  const [archivingTicker, setArchivingTicker] = useState<string | null>(null);
 
   useEffect(() => {
     if (!focusedTicker) return;
@@ -1136,6 +1142,26 @@ function TickerLibraryView({
     setActionFilter("all");
     setSourceTypeFilter("all");
     setTimeWindow("all");
+  }
+
+  async function handleArchiveTicker(ticker: string, tickerHoldings: HoldingRecord[]) {
+    if (tickerHoldings.length === 0 || archivingTicker) return;
+    const confirmed = window.confirm(`确认将 ${ticker} 的 ${tickerHoldings.length} 条已确认资料移出资料库吗？原始录入记录会保留，可在账户导出中追溯。`);
+
+    if (!confirmed) return;
+
+    setArchivingTicker(ticker);
+
+    try {
+      await Promise.all(tickerHoldings.map((holding) => archiveHolding(holding.id)));
+      onLibraryChanged();
+      if (selectedTicker === ticker) setSelectedTicker(null);
+    } catch (error) {
+      console.error("Archive holdings failed", error);
+      window.alert("移出资料库失败，请检查服务状态后重试。");
+    } finally {
+      setArchivingTicker(null);
+    }
   }
 
   if (!hasAnyTicker) {
@@ -1256,6 +1282,14 @@ function TickerLibraryView({
                   <button onClick={() => onAsk(`目前整理的资料怎么看 ${detailTicker}？`)} type="button">问这个标的</button>
                   <button onClick={() => onAsk(`${detailTicker} 最近有什么变化？`)} type="button">问最近变化</button>
                   <button onClick={() => onAsk(`${detailTicker} 有哪些证据？`)} type="button">问证据来源</button>
+                  <button
+                    className="danger-outline"
+                    disabled={archivingTicker === detailTicker || detailHoldings.length === 0}
+                    onClick={() => handleArchiveTicker(detailTicker, detailHoldings)}
+                    type="button"
+                  >
+                    {archivingTicker === detailTicker ? "正在移出" : "移出资料库"}
+                  </button>
                 </div>
               </div>
             </section>
@@ -1308,6 +1342,14 @@ function TickerLibraryView({
                 {tickerHoldings[0] && (
                   <button onClick={() => onOpenEvidence(tickerHoldings[0].sourceIngestItemId)} type="button">打开资料</button>
                 )}
+                <button
+                  className="danger-outline"
+                  disabled={archivingTicker === ticker || tickerHoldings.length === 0}
+                  onClick={() => handleArchiveTicker(ticker, tickerHoldings)}
+                  type="button"
+                >
+                  {archivingTicker === ticker ? "正在移出" : "移出资料库"}
+                </button>
               </div>
             </div>
           </section>

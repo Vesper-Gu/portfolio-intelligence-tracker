@@ -1337,6 +1337,24 @@ h1 {
   color: var(--yellow);
 }
 
+.ticker-detail-actions button.danger-outline,
+.ticker-card-actions button.danger-outline {
+  border-color: rgba(228, 111, 103, 0.45);
+  color: #efb0aa;
+}
+
+.ticker-detail-actions button.danger-outline:hover,
+.ticker-card-actions button.danger-outline:hover {
+  border-color: rgba(228, 111, 103, 0.7);
+  background: rgba(228, 111, 103, 0.08);
+}
+
+.ticker-detail-actions button:disabled,
+.ticker-card-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .evidence-overlay {
   position: fixed;
   inset: 0;
