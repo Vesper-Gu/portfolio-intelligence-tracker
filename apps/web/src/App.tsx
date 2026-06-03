@@ -1069,6 +1069,7 @@ function TickerLibraryView({
   }, [focusedTicker]);
 
   const activeHoldings = holdings.filter((holding) => holding.status === "已确认");
+  const activeTickerSet = new Set(activeHoldings.map((holding) => holding.ticker));
   const holdingsById = new Map(activeHoldings.map((holding) => [holding.id, holding]));
   const normalizedSearch = searchQuery.trim().toUpperCase();
   const cutoff = timeWindow === "all"
@@ -1102,32 +1103,35 @@ function TickerLibraryView({
 
   const filteredEvents = recentEvents.filter((event) => {
     const holding = holdingsById.get(event.holdingId);
+    if (!holding) return false;
+
     const matchesAction = actionFilter === "all" || event.action === actionFilter;
-    const matchesSourceType = sourceTypeFilter === "all" || holding?.sourceType === sourceTypeFilter;
+    const matchesSourceType = sourceTypeFilter === "all" || holding.sourceType === sourceTypeFilter;
     const matchesTime = isInsideTimeWindow(event.createdAt);
     const matchesText = [
       event.ticker,
       event.action,
       event.summary,
-      holding?.source,
-      holding?.sourceName,
-      formatSourceType(holding?.sourceType)
+      holding.source,
+      holding.sourceName,
+      formatSourceType(holding.sourceType)
     ].some(matchesSearch);
 
     return matchesAction && matchesSourceType && matchesTime && matchesText;
   });
 
-  const hasAnyTicker = positions.length > 0 || activeHoldings.length > 0 || recentEvents.length > 0;
+  const activePositions = positions.filter((position) => activeTickerSet.has(position.ticker));
+  const hasAnyTicker = activeHoldings.length > 0;
   const hasActiveFilters = Boolean(normalizedSearch) || actionFilter !== "all" || sourceTypeFilter !== "all" || timeWindow !== "all";
   const visibleTickers = [...new Set([
-    ...(hasActiveFilters ? [] : positions.map((position) => position.ticker)),
+    ...(hasActiveFilters ? [] : activePositions.map((position) => position.ticker)),
     ...filteredHoldings.map((holding) => holding.ticker),
     ...filteredEvents.map((event) => event.ticker)
   ])].sort();
   const recordsTicker = selectedTickerForRecords && visibleTickers.includes(selectedTickerForRecords)
     ? selectedTickerForRecords
     : null;
-  const recordsPosition = recordsTicker ? positions.find((item) => item.ticker === recordsTicker) : undefined;
+  const recordsPosition = recordsTicker ? activePositions.find((item) => item.ticker === recordsTicker) : undefined;
   const recordsHoldings = recordsTicker
     ? filteredHoldings
       .filter((holding) => holding.ticker === recordsTicker)
@@ -1241,7 +1245,7 @@ function TickerLibraryView({
         <>
           <div className="library-grid">
             {visibleTickers.map((ticker) => {
-              const position = positions.find((item) => item.ticker === ticker);
+              const position = activePositions.find((item) => item.ticker === ticker);
               const tickerHoldings = filteredHoldings.filter((holding) => holding.ticker === ticker);
               const tickerEvents = filteredEvents
                 .filter((event) => event.ticker === ticker)

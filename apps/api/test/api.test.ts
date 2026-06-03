@@ -925,6 +925,12 @@ test("POST /holdings/:id/archive archives a holding and records quality event", 
   assert.equal(eventsResponse.statusCode, 200);
   assert.equal(events.length, 1);
   assert.equal(events[0].eventType, "holding_archived");
+
+  const positionsResponse = await app.inject({ method: "GET", url: "/portfolio/positions" });
+  const positions = positionsResponse.json();
+
+  assert.equal(positionsResponse.statusCode, 200);
+  assert.equal(positions.some((position: { ticker: string }) => position.ticker === "NVDA"), false);
 });
 
 test("POST /holdings/:id/restore restores an archived holding and records quality event", async () => {
