@@ -505,7 +505,7 @@ test("POST /ingest-items/:id/accept marks an item accepted", async () => {
   const holdings = holdingsResponse.json();
   assert.equal(holdingsResponse.statusCode, 200);
   assert.equal(holdings.length, 1);
-  assert.equal(holdings[0].id, "HLD-ING-1024");
+  assert.equal(holdings[0].id, "HLD-ING-1024-NVDA");
   assert.equal(holdings[0].ticker, "NVDA");
   assert.equal(holdings[0].lastAction, "加仓");
   assert.equal(holdings[0].sourceName, "@Investor_X");
@@ -516,7 +516,7 @@ test("POST /ingest-items/:id/accept marks an item accepted", async () => {
   const events = eventsResponse.json();
   assert.equal(eventsResponse.statusCode, 200);
   assert.equal(events.length, 1);
-  assert.equal(events[0].id, "HEV-ING-1024");
+  assert.equal(events[0].id, "HEV-ING-1024-NVDA");
   assert.equal(events[0].ingestItemId, "ING-1024");
 
   const repeatAcceptResponse = await app.inject({
@@ -527,6 +527,122 @@ test("POST /ingest-items/:id/accept marks an item accepted", async () => {
   const repeatedEventsResponse = await app.inject({ method: "GET", url: "/holding-events" });
   assert.equal(repeatedEventsResponse.json().length, 1);
   assert.equal(repeatAcceptResponse.statusCode, 200);
+});
+
+test("POST /ingest-items/:id/accept writes multiple valid ticker signals from one source item", async () => {
+  const app = buildApp();
+  const createResponse = await app.inject({
+    method: "POST",
+    url: "/ingest-items",
+    payload: {
+      source: "用户粘贴文本",
+      sourceName: "Multi Ticker Note",
+      sourceType: "personal_note",
+      publishedAt: "2026-06-02",
+      kind: "text",
+      rawText: "NVDA and AMD both mentioned; UNKNOWN should not enter holdings.",
+      ticker: "UNKNOWN"
+    }
+  });
+  const created = createResponse.json();
+
+  await app.inject({
+    method: "POST",
+    url: `/ingest-items/${created.id}/extraction-candidates`,
+    payload: {
+      provider: "rule_v1",
+      ticker: "NVDA",
+      action: "加仓",
+      confidence: "0.82",
+      summary: "资料提到 NVDA 加仓。"
+    }
+  });
+  await app.inject({
+    method: "POST",
+    url: `/ingest-items/${created.id}/extraction-candidates`,
+    payload: {
+      provider: "rule_v1",
+      ticker: "AMD",
+      action: "观察",
+      confidence: "0.70",
+      summary: "资料提到 AMD 观察。"
+    }
+  });
+  await app.inject({
+    method: "POST",
+    url: `/ingest-items/${created.id}/extraction-candidates`,
+    payload: {
+      provider: "rule_v1",
+      ticker: "UNKNOWN",
+      action: "观察",
+      confidence: "0.40",
+      summary: "不明确标的。"
+    }
+  });
+
+  const acceptResponse = await app.inject({
+    method: "POST",
+    url: `/ingest-items/${created.id}/accept`,
+    payload: { reviewer: "local-user" }
+  });
+  const holdingsResponse = await app.inject({ method: "GET", url: "/holdings" });
+  const eventsResponse = await app.inject({ method: "GET", url: "/holding-events" });
+  const holdings = holdingsResponse.json();
+  const events = eventsResponse.json();
+
+  assert.equal(acceptResponse.statusCode, 200);
+  assert.deepEqual(holdings.map((holding: { ticker: string }) => holding.ticker).sort(), ["AMD", "NVDA"]);
+  assert.deepEqual(events.map((event: { ingestItemId: string }) => event.ingestItemId), [created.id, created.id]);
+
+  const repeatResponse = await app.inject({
+    method: "POST",
+    url: `/ingest-items/${created.id}/accept`,
+    payload: { reviewer: "local-user" }
+  });
+  const repeatedHoldings = (await app.inject({ method: "GET", url: "/holdings" })).json();
+
+  assert.equal(repeatResponse.statusCode, 200);
+  assert.equal(repeatedHoldings.length, 2);
+});
+
+test("POST /ingest-items/:id/accept rejects source items without valid ticker signals", async () => {
+  const app = buildApp();
+  const createResponse = await app.inject({
+    method: "POST",
+    url: "/ingest-items",
+    payload: {
+      source: "用户粘贴文本",
+      sourceName: "Unknown Note",
+      sourceType: "personal_note",
+      kind: "text",
+      rawText: "这里没有明确股票代码。",
+      ticker: "UNKNOWN"
+    }
+  });
+  const created = createResponse.json();
+
+  await app.inject({
+    method: "POST",
+    url: `/ingest-items/${created.id}/extraction-candidates`,
+    payload: {
+      provider: "rule_v1",
+      ticker: "UNKNOWN",
+      action: "观察",
+      confidence: "0.40",
+      summary: "没有明确标的。"
+    }
+  });
+
+  const acceptResponse = await app.inject({
+    method: "POST",
+    url: `/ingest-items/${created.id}/accept`,
+    payload: { reviewer: "local-user" }
+  });
+  const holdingsResponse = await app.inject({ method: "GET", url: "/holdings" });
+
+  assert.equal(acceptResponse.statusCode, 400);
+  assert.match(acceptResponse.json().error, /标的信号/);
+  assert.equal(holdingsResponse.json().length, 0);
 });
 
 test("POST /ingest-items/:id/accept updates an existing accepted holding", async () => {
@@ -540,15 +656,19 @@ test("POST /ingest-items/:id/accept updates an existing accepted holding", async
     url: "/ingest-items/ING-1024/accept",
     payload: { reviewer: "local-user" }
   });
+  const candidatesResponse = await app.inject({
+    method: "GET",
+    url: "/ingest-items/ING-1024/extraction-candidates"
+  });
+  const candidate = candidatesResponse.json()[0];
   await app.inject({
     method: "PATCH",
-    url: "/ingest-items/ING-1024",
+    url: `/extraction-candidates/${candidate.id}`,
     payload: {
       ticker: "TSLA",
-      extractedTicker: "TSLA",
-      extractedAction: "风险",
-      extractedConfidence: "0.91",
-      extractionSummary: "复核后改为 TSLA 风险候选。"
+      action: "风险",
+      confidence: "0.91",
+      summary: "复核后改为 TSLA 风险候选。"
     }
   });
   await app.inject({
@@ -562,13 +682,13 @@ test("POST /ingest-items/:id/accept updates an existing accepted holding", async
   const holdings = holdingsResponse.json();
   const events = eventsResponse.json();
 
-  assert.equal(holdings.length, 1);
-  assert.equal(holdings[0].ticker, "TSLA");
-  assert.equal(holdings[0].lastAction, "风险");
-  assert.equal(holdings[0].confidence, "0.91");
-  assert.equal(events.length, 1);
-  assert.equal(events[0].ticker, "TSLA");
-  assert.equal(events[0].summary, "复核后改为 TSLA 风险候选。");
+  const activeHoldings = holdings.filter((holding: { status: string }) => holding.status === "已确认");
+
+  assert.equal(activeHoldings.length, 1);
+  assert.equal(activeHoldings[0].ticker, "TSLA");
+  assert.equal(activeHoldings[0].lastAction, "风险");
+  assert.equal(activeHoldings[0].confidence, "0.91");
+  assert.equal(events.some((event: { ticker: string; summary: string }) => event.ticker === "TSLA" && event.summary === "复核后改为 TSLA 风险候选。"), true);
 });
 
 test("GET /portfolio/positions aggregates active accepted holdings by ticker", async () => {
@@ -908,17 +1028,17 @@ test("POST /holdings/:id/archive archives a holding and records quality event", 
 
   const response = await app.inject({
     method: "POST",
-    url: "/holdings/HLD-ING-1024/archive"
+    url: "/holdings/HLD-ING-1024-NVDA/archive"
   });
   const body = response.json();
 
   assert.equal(response.statusCode, 200);
-  assert.equal(body.id, "HLD-ING-1024");
+  assert.equal(body.id, "HLD-ING-1024-NVDA");
   assert.equal(body.status, "已归档");
 
   const eventsResponse = await app.inject({
     method: "GET",
-    url: "/quality-events?entityId=HLD-ING-1024"
+    url: "/quality-events?entityId=HLD-ING-1024-NVDA"
   });
   const events = eventsResponse.json();
 
@@ -946,12 +1066,12 @@ test("POST /holdings/:id/restore restores an archived holding and records qualit
   });
   await app.inject({
     method: "POST",
-    url: "/holdings/HLD-ING-1024/archive"
+    url: "/holdings/HLD-ING-1024-NVDA/archive"
   });
 
   const response = await app.inject({
     method: "POST",
-    url: "/holdings/HLD-ING-1024/restore"
+    url: "/holdings/HLD-ING-1024-NVDA/restore"
   });
   const body = response.json();
 
@@ -960,7 +1080,7 @@ test("POST /holdings/:id/restore restores an archived holding and records qualit
 
   const eventsResponse = await app.inject({
     method: "GET",
-    url: "/quality-events?entityId=HLD-ING-1024"
+    url: "/quality-events?entityId=HLD-ING-1024-NVDA"
   });
   const eventTypes = eventsResponse.json().map((event: { eventType: string }) => event.eventType);
   assert.deepEqual(eventTypes, ["holding_restored", "holding_archived"]);

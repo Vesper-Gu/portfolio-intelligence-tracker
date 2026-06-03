@@ -21,8 +21,10 @@ import {
 import {
   acceptIngestItem,
   archiveHolding,
+  createExtractionCandidate,
   createIngestItem,
   deleteAccountData,
+  deleteExtractionCandidate,
   extractIngestItem,
   exportAccountData,
   fetchDashboardPayload,
@@ -38,6 +40,7 @@ import {
   queryRag,
   rejectIngestItem,
   uploadIngestImage,
+  updateExtractionCandidate,
   updateIngestItem,
   updateSource
 } from "./api";
@@ -140,6 +143,15 @@ function normalizeEditableConfidence(value: string) {
   if (!Number.isFinite(parsed)) return "0.50";
 
   return Math.min(1, Math.max(0, parsed)).toFixed(2);
+}
+
+function normalizeEditableTicker(value: string) {
+  return value.trim().toUpperCase();
+}
+
+function isValidEditableTicker(value: string) {
+  const ticker = normalizeEditableTicker(value);
+  return ticker !== "UNKNOWN" && /^[A-Z0-9][A-Z0-9.-]{0,14}$/.test(ticker);
 }
 
 function hideConfidenceText(value: string) {
@@ -1603,10 +1615,10 @@ function EvidenceDetailDrawer({
               <p>{getUserFacingSourceSummary(item) || "暂无资料摘要。"}</p>
             </section>
             <div className="evidence-actions">
-              <button onClick={() => onOpenTicker(item.extractedTicker ?? item.ticker)} type="button">
+              <button onClick={() => onOpenTicker(candidates.find((candidate) => isValidEditableTicker(candidate.ticker))?.ticker ?? item.extractedTicker ?? item.ticker)} type="button">
                 打开标的资料库
               </button>
-              <button onClick={() => onAskTicker(item.extractedTicker ?? item.ticker)} type="button">
+              <button onClick={() => onAskTicker(candidates.find((candidate) => isValidEditableTicker(candidate.ticker))?.ticker ?? item.extractedTicker ?? item.ticker)} type="button">
                 问这个标的
               </button>
             </div>
@@ -1616,12 +1628,12 @@ function EvidenceDetailDrawer({
               <p>{getOriginalEvidenceContent(item)}</p>
             </section>
             <section className="evidence-section">
-              <h3>解析记录</h3>
+              <h3>关联标的信号</h3>
               {candidates.length === 0 ? (
-                <p>暂无解析记录。</p>
+                <p>暂无标的信号。</p>
               ) : (
                 <div className="evidence-candidate-list">
-                  {candidates.slice(0, 4).map((candidate) => (
+                  {candidates.map((candidate) => (
                     <div className="evidence-candidate" key={candidate.id}>
                       <strong>{candidate.ticker} / {candidate.action}</strong>
                       <span>{describeCandidateStatus(candidate)} · {formatShortDate(candidate.createdAt)}</span>
@@ -1664,6 +1676,7 @@ function IngestView({
   const [editAction, setEditAction] = useState<SignalAction>("观察");
   const [editConfidence, setEditConfidence] = useState("0.00");
   const [editSummary, setEditSummary] = useState("");
+  const [editingCandidateId, setEditingCandidateId] = useState<string | null>(null);
   const [editSourceName, setEditSourceName] = useState("");
   const [editSourceType, setEditSourceType] = useState<ResearchSourceType>("other");
   const [editPublishedAt, setEditPublishedAt] = useState("");
@@ -1712,6 +1725,7 @@ function IngestView({
     setPreviewImageUrl(null);
     setPreviewStatus(null);
     setExtractionCandidates([]);
+    setEditingCandidateId(null);
 
     if (!selectedId) return;
 
@@ -1727,6 +1741,7 @@ function IngestView({
     setEditAction(selected.extractedAction ?? "观察");
     setEditConfidence(selected.extractedConfidence ?? selected.confidence);
     setEditSummary(selected.extractionSummary ?? "");
+    setEditingCandidateId(null);
     setEditSourceName(selected.sourceName ?? "");
     setEditSourceType(selected.sourceType ?? "other");
     setEditPublishedAt(selected.publishedAt?.slice(0, 10) ?? "");
@@ -1751,10 +1766,31 @@ function IngestView({
     }
   }
 
+  async function refreshCandidates(id: string) {
+    const candidates = await fetchExtractionCandidates(id);
+    setExtractionCandidates(candidates);
+    return candidates;
+  }
+
   async function handleAcceptSelected() {
     if (!selected) return;
 
-    const nextItem = await runMutation(() => acceptIngestItem(selected.id), `${selected.id} 已加入资料库，正在打开标的资料库`);
+    const validCandidates = extractionCandidates.filter((candidate) => isValidEditableTicker(candidate.ticker));
+
+    if (validCandidates.length === 0 && isValidEditableTicker(editTicker)) {
+      await handleSaveSignal();
+    }
+
+    const nextCandidates = extractionCandidates.some((candidate) => isValidEditableTicker(candidate.ticker))
+      ? extractionCandidates
+      : await refreshCandidates(selected.id);
+    const acceptedCount = nextCandidates.filter((candidate) => isValidEditableTicker(candidate.ticker)).length;
+    const nextItem = await runMutation(
+      () => acceptIngestItem(selected.id),
+      acceptedCount > 1
+        ? `${selected.id} 已加入 ${acceptedCount} 条标的信号，正在打开标的资料库`
+        : `${selected.id} 已加入资料库，正在打开标的资料库`
+    );
 
     if (!nextItem) return;
 
@@ -1847,8 +1883,7 @@ function IngestView({
     try {
       const nextItem = await extractIngestItem(selected.id);
       replaceItem(nextItem);
-      const candidates = await fetchExtractionCandidates(selected.id);
-      setExtractionCandidates(candidates);
+      const candidates = await refreshCandidates(selected.id);
       const latestCandidate = candidates[0];
       const statusLabel = latestCandidate ? describeCandidateStatus(latestCandidate) : "已生成候选字段";
       setStatusText(`${selected.id} ${statusLabel}`);
@@ -1862,16 +1897,56 @@ function IngestView({
   async function handleSaveEdits() {
     if (!selected) return;
 
-    const ticker = editTicker.trim().toUpperCase() || "UNKNOWN";
-    const confidence = normalizeEditableConfidence(editConfidence);
-    const summary = editSummary.trim() || `人工修改候选 ticker=${ticker}，action=${editAction}。`;
-
     await runMutation(
       () => updateIngestItem(selected.id, {
         sourceName: editSourceName.trim() || undefined,
         sourceType: editSourceType,
         publishedAt: editPublishedAt || undefined,
-        reportingPeriod: editReportingPeriod.trim() || undefined,
+        reportingPeriod: editReportingPeriod.trim() || undefined
+      }),
+      `${selected.id} 来源信息已保存`
+    );
+  }
+
+  async function handleSaveSignal() {
+    if (!selected) return;
+
+    const ticker = editTicker.trim().toUpperCase() || "UNKNOWN";
+    const confidence = normalizeEditableConfidence(editConfidence);
+    const summary = editSummary.trim() || `人工修改候选 ticker=${ticker}，action=${editAction}。`;
+
+    if (!isValidEditableTicker(ticker)) {
+      setStatusText("请先填写明确 ticker，UNKNOWN 不会加入资料库");
+      return;
+    }
+
+    setIsMutating(true);
+
+    try {
+      if (editingCandidateId) {
+        await updateExtractionCandidate(editingCandidateId, {
+          ticker,
+          action: editAction,
+          confidence,
+          summary,
+          status: "success"
+        });
+        setStatusText(`${ticker} 信号已更新`);
+      } else {
+        await createExtractionCandidate(selected.id, {
+          provider: "rule_v1",
+          ticker,
+          action: editAction,
+          confidence,
+          summary,
+          status: "success",
+          fallbackUsed: false,
+          retryable: false
+        });
+        setStatusText(`${ticker} 信号已添加`);
+      }
+
+      await updateIngestItem(selected.id, {
         ticker,
         confidence,
         status: Number(confidence) >= 0.8 ? "可接受" : "需人工确认",
@@ -1880,17 +1955,40 @@ function IngestView({
         extractedConfidence: confidence,
         extractionSummary: summary,
         extractedAt: new Date().toISOString()
-      }),
-      `${selected.id} 字段已保存`
-    );
+      });
+      await refreshCandidates(selected.id);
+      setEditingCandidateId(null);
+    } catch {
+      setStatusText("候选信号保存失败，请确认后端服务状态");
+    } finally {
+      setIsMutating(false);
+    }
   }
 
   function applyCandidateToEditor(candidate: ExtractionCandidate) {
+    setEditingCandidateId(candidate.id);
     setEditTicker(candidate.ticker);
     setEditAction(candidate.action);
     setEditConfidence(candidate.confidence);
     setEditSummary(candidate.summary);
     setStatusText(`${candidate.id} 已应用到编辑表单`);
+  }
+
+  async function handleDeleteCandidate(candidate: ExtractionCandidate) {
+    if (!selected) return;
+
+    setIsMutating(true);
+
+    try {
+      await deleteExtractionCandidate(candidate.id);
+      await refreshCandidates(selected.id);
+      if (editingCandidateId === candidate.id) setEditingCandidateId(null);
+      setStatusText(`${candidate.ticker} 信号已移除`);
+    } catch {
+      setStatusText("候选信号移除失败");
+    } finally {
+      setIsMutating(false);
+    }
   }
 
   function buildCreateIngestRequest(): CreateIngestItemRequest | null {
@@ -2120,27 +2218,52 @@ function IngestView({
               </label>
             </div>
             <div className="candidate-history">
-              <div className="candidate-history-title">候选结果历史</div>
+              <div className="candidate-history-title">
+                候选标的信号
+                <button
+                  disabled={isMutating}
+                  onClick={() => {
+                    setEditingCandidateId(null);
+                    setEditTicker("");
+                    setEditAction("观察");
+                    setEditConfidence("0.70");
+                    setEditSummary("");
+                  }}
+                  type="button"
+                >
+                  新增信号
+                </button>
+              </div>
               {extractionCandidates.length === 0 ? (
-                <p>暂无候选结果</p>
+                <p>暂无候选信号。可以 AI 解析，或手动添加 ticker 后保存信号。</p>
               ) : (
-                extractionCandidates.slice(0, 3).map((candidate) => (
-                  <div className="candidate-row" key={candidate.id}>
+                extractionCandidates.map((candidate) => (
+                  <div className={editingCandidateId === candidate.id ? "candidate-row active" : "candidate-row"} key={candidate.id}>
                     <div className="candidate-row-header">
                       <strong>{candidate.ticker} / {candidate.action}</strong>
-                      <button
-                        disabled={isMutating}
-                        onClick={() => applyCandidateToEditor(candidate)}
-                        type="button"
-                      >
-                        应用
-                      </button>
+                      <div className="candidate-row-actions">
+                        <button
+                          disabled={isMutating}
+                          onClick={() => applyCandidateToEditor(candidate)}
+                          type="button"
+                        >
+                          编辑
+                        </button>
+                        <button
+                          disabled={isMutating}
+                          onClick={() => handleDeleteCandidate(candidate)}
+                          type="button"
+                        >
+                          移除
+                        </button>
+                      </div>
                     </div>
                     <span>
                       {candidate.provider} · <em className={toneClass[candidateStatusTone(candidate)]}>{describeCandidateStatus(candidate)}</em>
                       {candidate.providerError ? ` · ${candidate.providerError}` : ""} ·{" "}
                       {new Date(candidate.createdAt).toLocaleString("zh-CN")}
                     </span>
+                    <p>{hideConfidenceText(candidate.summary)}</p>
                   </div>
                 ))
               )}
@@ -2165,7 +2288,14 @@ function IngestView({
                 onClick={handleSaveEdits}
                 type="button"
               >
-                保存修改
+                保存来源信息
+              </button>
+              <button
+                disabled={isMutating}
+                onClick={handleSaveSignal}
+                type="button"
+              >
+                {editingCandidateId ? "保存信号" : "添加信号"}
               </button>
               <button
                 disabled={isMutating || selected.status === "已驳回"}

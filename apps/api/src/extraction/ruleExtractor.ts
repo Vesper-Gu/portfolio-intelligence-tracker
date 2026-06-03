@@ -16,21 +16,75 @@ const knownTickers = ["NVDA", "TSLA", "MSTR", "SMH", "AMD", "BTC", "ETH", "AAPL"
 const ignoredUppercaseTerms = new Set(["AI", "API", "OCR", "SEC", "URL", "PNG", "JPEG", "WEBP", "UNKNOWN"]);
 
 export function extractIngestCandidate(item: IngestItem): ExtractionCandidate {
+  return extractIngestCandidates(item)[0];
+}
+
+export function extractIngestCandidates(item: IngestItem): ExtractionCandidate[] {
   const corpus = `${item.source}\n${item.fileName ?? ""}\n${item.rawText}`.toUpperCase();
-  const ticker = findKnownTicker(corpus)
-    ?? item.extractedTicker
-    ?? (item.ticker !== "UNKNOWN" ? item.ticker : findTicker(corpus))
-    ?? "UNKNOWN";
+  const tickers = findTickers(corpus, item);
   const action = inferAction(corpus);
-  const confidence = inferConfidence(item, ticker, action);
-  const summary = buildSummary(item, ticker, action, confidence);
+
+  return tickers.map((ticker) => {
+    const confidence = inferConfidence(item, ticker, action);
+    const summary = buildSummary(item, ticker, action, confidence);
+
+    return {
+      provider: "rule_v1",
+      ticker,
+      action,
+      confidence,
+      summary,
+      status: "success",
+      fallbackUsed: false,
+      retryable: false
+    };
+  });
+}
+
+function findTickers(corpus: string, item: IngestItem) {
+  const tickers = new Set<string>();
+
+  for (const ticker of knownTickers) {
+    if (corpus.includes(ticker)) tickers.add(ticker);
+  }
+
+  if (item.extractedTicker) tickers.add(item.extractedTicker.toUpperCase());
+  if (item.ticker !== "UNKNOWN") tickers.add(item.ticker.toUpperCase());
+
+  if (tickers.size === 0) {
+    const fallback = (corpus.match(/\b[A-Z]{2,5}(?:\.[A-Z]{2})?\b/g) ?? [])
+      .find((candidate) => !ignoredUppercaseTerms.has(candidate));
+    if (fallback) tickers.add(fallback);
+  }
+
+  return tickers.size ? [...tickers] : ["UNKNOWN"];
+}
+
+export function isValidExtractedTicker(ticker: string) {
+  const normalized = ticker.trim().toUpperCase();
+
+  return normalized !== "UNKNOWN" && /^[A-Z0-9][A-Z0-9.-]{0,14}$/.test(normalized);
+}
+
+export function normalizeExtractedTicker(ticker: string) {
+  return ticker.trim().toUpperCase();
+}
+
+export function candidateKey(candidate: Pick<ExtractionCandidate, "ticker" | "action" | "summary">) {
+  return `${normalizeExtractedTicker(candidate.ticker)}::${candidate.action}::${candidate.summary.trim()}`;
+}
+
+export function fallbackCandidate(item: IngestItem): ExtractionCandidate {
+  const ticker = item.extractedTicker ?? item.ticker;
+  const action = item.extractedAction ?? "观察";
+  const confidence = item.extractedConfidence ?? item.confidence;
 
   return {
     provider: "rule_v1",
     ticker,
     action,
     confidence,
-    summary,
+    summary: item.extractionSummary ?? buildSummary(item, ticker, action, confidence),
     status: "success",
     fallbackUsed: false,
     retryable: false

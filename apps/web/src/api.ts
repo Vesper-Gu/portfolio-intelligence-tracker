@@ -3,6 +3,8 @@ import {
   accountExportSchema,
   dashboardPayloadSchema,
   extractionCandidateSchema,
+  createExtractionCandidateRequestSchema,
+  updateExtractionCandidateRequestSchema,
   holdingEventSchema,
   holdingRecordSchema,
   ingestItemSchema,
@@ -21,11 +23,13 @@ import {
   type QualityEvent,
   type AccountDeleteResponse,
   type AccountExport,
+  type CreateExtractionCandidateRequest,
   type OpsStatus,
   type RagQueryRequest,
   type RagQueryResponse,
   type RejectIngestItemRequest,
   type SourceItem,
+  type UpdateExtractionCandidateRequest,
   type UpdateSourceRequest,
   type UpdateIngestItemRequest
 } from "@pit/shared";
@@ -313,6 +317,52 @@ export async function fetchExtractionCandidates(id: string): Promise<ExtractionC
 
   const payload: unknown = await response.json();
   return extractionCandidateSchema.array().parse(payload);
+}
+
+export async function createExtractionCandidate(id: string, request: Omit<CreateExtractionCandidateRequest, "ingestItemId">): Promise<ExtractionCandidate> {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL ?? defaultApiBaseUrl;
+  const body = createExtractionCandidateRequestSchema.omit({ ingestItemId: true }).parse(request);
+  const response = await apiFetch(`${baseUrl}/ingest-items/${id}/extraction-candidates`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Create extraction candidate failed: ${response.status}`);
+  }
+
+  const payload: unknown = await response.json();
+  return extractionCandidateSchema.parse(payload);
+}
+
+export async function updateExtractionCandidate(id: string, request: UpdateExtractionCandidateRequest): Promise<ExtractionCandidate> {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL ?? defaultApiBaseUrl;
+  const body = updateExtractionCandidateRequestSchema.parse(request);
+  const response = await apiFetch(`${baseUrl}/extraction-candidates/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Update extraction candidate failed: ${response.status}`);
+  }
+
+  const payload: unknown = await response.json();
+  return extractionCandidateSchema.parse(payload);
+}
+
+export async function deleteExtractionCandidate(id: string): Promise<ExtractionCandidate> {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL ?? defaultApiBaseUrl;
+  const response = await apiFetch(`${baseUrl}/extraction-candidates/${id}`, { method: "DELETE" });
+
+  if (!response.ok) {
+    throw new Error(`Delete extraction candidate failed: ${response.status}`);
+  }
+
+  const payload: unknown = await response.json();
+  return extractionCandidateSchema.parse(payload);
 }
 
 export async function fetchIngestImageUrl(id: string): Promise<{ url: string; expiresInSeconds: number }> {

@@ -19,6 +19,8 @@ import {
   ragQueryResponseSchema,
   rejectIngestItemRequestSchema,
   sourceItemSchema,
+  createExtractionCandidateRequestSchema,
+  updateExtractionCandidateRequestSchema,
   updateSourceRequestSchema,
   updateIngestItemRequestSchema
 } from "@pit/shared";
@@ -35,6 +37,7 @@ import type { ExtractionCandidate } from "./extraction/ruleExtractor.js";
 import type { IngestItem } from "@pit/shared";
 
 const ingestItemParamsSchema = ingestItemSchema.pick({ id: true });
+const extractionCandidateParamsSchema = extractionCandidateSchema.pick({ id: true });
 const holdingParamsSchema = holdingRecordSchema.pick({ id: true });
 const sourceParamsSchema = sourceItemSchema.pick({ name: true });
 const allowedImageMimeTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -311,7 +314,17 @@ export function buildApp(options: BuildAppOptions = {}) {
   app.post("/ingest-items/:id/accept", async (request, reply) => {
     const { id } = ingestItemParamsSchema.parse(request.params);
     const body = acceptIngestItemRequestSchema.parse(request.body ?? {});
-    const item = await repository.acceptIngestItem(request.userId, id, body);
+    let item: IngestItem | undefined;
+
+    try {
+      item = await repository.acceptIngestItem(request.userId, id, body);
+    } catch (error) {
+      if (error instanceof Error && /No valid extraction candidate/.test(error.message)) {
+        return reply.code(400).send({ error: "没有可加入资料库的标的信号，请先添加至少一个明确 ticker。" });
+      }
+
+      throw error;
+    }
 
     if (!item) {
       return reply.code(404).send({ error: "Ingest item not found" });
@@ -342,42 +355,47 @@ export function buildApp(options: BuildAppOptions = {}) {
     }
 
     const extractionSkillName = currentItem.kind === "screenshot" ? "extract_image_signal" : "extract_text_signal";
-    const candidate = await runCapabilityOrReply(reply, () => capabilityRunner.runSkill({
+    const candidates = await runCapabilityOrReply(reply, () => capabilityRunner.runSkill({
       userId: request.userId,
-      skill: skillRegistry.get<IngestItem, ExtractionCandidate>(extractionSkillName),
+      skill: skillRegistry.get<IngestItem, ExtractionCandidate[]>(extractionSkillName),
       input: currentItem,
       limit: dailyVisionLimit,
       inputSummary: `ingestItemId=${id}; kind=${currentItem.kind}`,
-      summarizeOutput: (result) => `provider=${result.provider}; status=${result.status ?? "success"}; ticker=${result.ticker}`
+      summarizeOutput: (result) => `signals=${result.length}; tickers=${result.map((candidate) => candidate.ticker).join(",")}`
     }));
 
-    if (!candidate) return;
-    const status = Number(candidate.confidence) >= 0.8 ? "可接受" : "需人工确认";
+    if (!candidates) return;
+    const primaryCandidate = candidates[0];
+    const status = Number(primaryCandidate.confidence) >= 0.8 ? "可接受" : "需人工确认";
     const createdAt = new Date().toISOString();
-    await repository.createExtractionCandidate(request.userId, {
-      ingestItemId: id,
-      provider: candidate.provider,
-      ticker: candidate.ticker,
-      action: candidate.action,
-      confidence: candidate.confidence,
-      summary: candidate.summary,
-      status: candidate.status,
-      fallbackUsed: candidate.fallbackUsed,
-      retryable: candidate.retryable,
-      providerError: candidate.providerError
-    });
+
+    for (const candidate of candidates) {
+      await repository.createExtractionCandidate(request.userId, {
+        ingestItemId: id,
+        provider: candidate.provider,
+        ticker: candidate.ticker,
+        action: candidate.action,
+        confidence: candidate.confidence,
+        summary: candidate.summary,
+        status: candidate.status,
+        fallbackUsed: candidate.fallbackUsed,
+        retryable: candidate.retryable,
+        providerError: candidate.providerError
+      });
+    }
+
     const item = await repository.updateIngestItem(request.userId, id, {
-      ticker: candidate.ticker,
-      confidence: candidate.confidence,
+      ticker: primaryCandidate.ticker,
+      confidence: primaryCandidate.confidence,
       status,
-      extractedTicker: candidate.ticker,
-      extractedAction: candidate.action,
-      extractedConfidence: candidate.confidence,
-      extractionSummary: candidate.summary,
+      extractedTicker: primaryCandidate.ticker,
+      extractedAction: primaryCandidate.action,
+      extractedConfidence: primaryCandidate.confidence,
+      extractionSummary: primaryCandidate.summary,
       extractedAt: createdAt
     });
 
-    request.log.info({ event: "ingest_extraction_completed", userId: request.userId, ingestItemId: id, provider: candidate.provider, status: candidate.status }, "Ingest extraction completed");
+    request.log.info({ event: "ingest_extraction_completed", userId: request.userId, ingestItemId: id, signals: candidates.length }, "Ingest extraction completed");
     return ingestItemSchema.parse(item);
   });
 
@@ -393,6 +411,47 @@ export function buildApp(options: BuildAppOptions = {}) {
     const candidates = await repository.getExtractionCandidates(request.userId, id);
 
     return extractionCandidateSchema.array().parse(candidates);
+  });
+
+  app.post("/ingest-items/:id/extraction-candidates", async (request, reply) => {
+    const { id } = ingestItemParamsSchema.parse(request.params);
+    const items = await repository.getIngestItems(request.userId);
+    const currentItem = items.find((item) => item.id === id);
+
+    if (!currentItem) {
+      return reply.code(404).send({ error: "Ingest item not found" });
+    }
+
+    const body = createExtractionCandidateRequestSchema.omit({ ingestItemId: true }).parse(request.body ?? {});
+    const candidate = await repository.createExtractionCandidate(request.userId, {
+      ...body,
+      ingestItemId: id
+    });
+
+    return reply.code(201).send(extractionCandidateSchema.parse(candidate));
+  });
+
+  app.patch("/extraction-candidates/:id", async (request, reply) => {
+    const { id } = extractionCandidateParamsSchema.parse(request.params);
+    const body = updateExtractionCandidateRequestSchema.parse(request.body ?? {});
+    const candidate = await repository.updateExtractionCandidate?.(request.userId, id, body);
+
+    if (!candidate) {
+      return reply.code(404).send({ error: "Extraction candidate not found" });
+    }
+
+    return extractionCandidateSchema.parse(candidate);
+  });
+
+  app.delete("/extraction-candidates/:id", async (request, reply) => {
+    const { id } = extractionCandidateParamsSchema.parse(request.params);
+    const candidate = await repository.deleteExtractionCandidate?.(request.userId, id);
+
+    if (!candidate) {
+      return reply.code(404).send({ error: "Extraction candidate not found" });
+    }
+
+    return extractionCandidateSchema.parse(candidate);
   });
 
   app.get("/ingest-items/:id/image-url", async (request, reply) => {

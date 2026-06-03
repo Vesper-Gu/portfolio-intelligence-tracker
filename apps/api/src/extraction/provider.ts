@@ -1,8 +1,8 @@
 import { signalActionSchema, type ExtractionProvider as ExtractionProviderName, type IngestItem, type SignalAction } from "@pit/shared";
-import { extractIngestCandidate, type ExtractionCandidate } from "./ruleExtractor.js";
+import { extractIngestCandidate, extractIngestCandidates, type ExtractionCandidate } from "./ruleExtractor.js";
 
 export interface ExtractionProvider {
-  extract(item: IngestItem): Promise<ExtractionCandidate> | ExtractionCandidate;
+  extract(item: IngestItem): Promise<ExtractionCandidate | ExtractionCandidate[]> | ExtractionCandidate | ExtractionCandidate[];
 }
 
 export interface DeepSeekExtractionOptions {
@@ -56,7 +56,7 @@ export function createExtractionProviderFromEnv(env: NodeJS.ProcessEnv, options:
 
 export class RuleExtractionProvider implements ExtractionProvider {
   extract(item: IngestItem) {
-    return extractIngestCandidate(item);
+    return extractIngestCandidates(item);
   }
 }
 
@@ -72,13 +72,13 @@ class FallbackExtractionProvider implements ExtractionProvider {
     } catch (error) {
       const fallback = await this.fallback.extract(item);
 
-      return {
-        ...fallback,
+      return normalizeProviderResult(fallback).map((candidate) => ({
+        ...candidate,
         status: "fallback" as const,
         fallbackUsed: true,
         retryable: isRetryableProviderError(error),
         providerError: sanitizeProviderError(error)
-      };
+      }));
     }
   }
 }
@@ -105,13 +105,13 @@ class DeepSeekTextExtractionProvider implements ExtractionProvider {
     this.model = options.model ?? "deepseek-v4-flash";
   }
 
-  async extract(item: IngestItem): Promise<ExtractionCandidate> {
+  async extract(item: IngestItem): Promise<ExtractionCandidate[]> {
     if (item.kind === "screenshot") {
       const fallback = extractIngestCandidate(item);
-      return {
+      return [{
         ...fallback,
         summary: `${fallback.summary}\nDeepSeek text provider 当前不读取图片二进制；图片需要 OCR/Vision provider。`
-      };
+      }];
     }
 
     const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
@@ -148,7 +148,7 @@ class DeepSeekTextExtractionProvider implements ExtractionProvider {
       throw new Error("DeepSeek extraction returned empty content");
     }
 
-    return normalizeDeepSeekCandidate(content);
+    return normalizeDeepSeekCandidates(content);
   }
 }
 
@@ -161,7 +161,7 @@ class KimiVisionExtractionProvider implements ExtractionProvider {
     this.model = options.model ?? "kimi-k2.6";
   }
 
-  async extract(item: IngestItem): Promise<ExtractionCandidate> {
+  async extract(item: IngestItem): Promise<ExtractionCandidate[]> {
     if (item.kind !== "screenshot" || !item.storageObjectKey) {
       throw new Error("Kimi vision extraction requires a stored screenshot");
     }
@@ -219,9 +219,9 @@ class KimiVisionExtractionProvider implements ExtractionProvider {
 
 function buildPrompt(item: IngestItem) {
   return [
-    "请从下面录入内容中抽取一个投资持仓候选结果。",
-    "输出 JSON schema: {\"ticker\":\"string\",\"action\":\"加仓|持有|减仓|新建仓|风险|观察\",\"confidence\":\"0.00-1.00\",\"summary\":\"中文一句话\"}",
-    "如果无法确定 ticker，ticker 使用 UNKNOWN；如果无法确定 action，action 使用 观察。",
+    "请从下面录入内容中抽取投资持仓候选信号，可以有多个 ticker。",
+    "输出 JSON schema: {\"signals\":[{\"ticker\":\"string\",\"action\":\"加仓|持有|减仓|新建仓|风险|观察\",\"confidence\":\"0.00-1.00\",\"summary\":\"中文一句话\"}]}",
+    "如果无法确定任何 ticker，输出一个 ticker 为 UNKNOWN 的信号；如果无法确定 action，action 使用 观察。",
     `source: ${promptSource(item.source)}`,
     `kind: ${item.kind}`,
     `rawText: ${promptText(item.rawText)}`
@@ -230,9 +230,9 @@ function buildPrompt(item: IngestItem) {
 
 function buildVisionPrompt(item: IngestItem) {
   return [
-    "请读取图片中的投资/持仓信息，抽取一个最重要的投资持仓候选结果。",
-    "输出 JSON schema: {\"ticker\":\"string\",\"action\":\"加仓|持有|减仓|新建仓|风险|观察\",\"confidence\":\"0.00-1.00\",\"summary\":\"中文一句话\"}",
-    "如果图片里没有明确股票代码，ticker 使用 UNKNOWN；如果无法确定操作，action 使用 观察。",
+    "请读取图片中的投资/持仓信息，抽取图片里出现的投资持仓候选信号，可以有多个 ticker。",
+    "输出 JSON schema: {\"signals\":[{\"ticker\":\"string\",\"action\":\"加仓|持有|减仓|新建仓|风险|观察\",\"confidence\":\"0.00-1.00\",\"summary\":\"中文一句话\"}]}",
+    "如果图片里没有明确股票代码，输出一个 ticker 为 UNKNOWN 的信号；如果无法确定操作，action 使用 观察。",
     "summary 需要说明你在图片里看到了什么证据，不要编造图片外信息。",
     `source: ${promptSource(item.source)}`,
     `fileName: ${item.fileName ?? "unknown"}`,
@@ -252,56 +252,52 @@ function promptText(text: string) {
     .replace(/\n?Reviewer note:[^\n]*/gi, "");
 }
 
-function normalizeDeepSeekCandidate(content: string): ExtractionCandidate {
-  const parsed = JSON.parse(content) as Partial<{
-    ticker: string;
-    action: string;
-    confidence: string | number;
-    summary: string;
-  }>;
-  const action: SignalAction = signalActionSchema.catch("观察").parse(parsed.action);
-  const confidence = normalizeConfidence(parsed.confidence);
-  const ticker = typeof parsed.ticker === "string" && parsed.ticker.trim() ? parsed.ticker.trim().toUpperCase() : "UNKNOWN";
-  const summary = typeof parsed.summary === "string" && parsed.summary.trim()
-    ? parsed.summary.trim()
-    : `DeepSeek 解析候选 ticker=${ticker}，action=${action}，confidence=${confidence}。`;
-
-  return {
-    provider: "deepseek_text",
-    ticker,
-    action,
-    confidence,
-    summary,
-    status: "success",
-    fallbackUsed: false,
-    retryable: false
-  };
+function normalizeDeepSeekCandidates(content: string): ExtractionCandidate[] {
+  return normalizeProviderCandidates(content, "deepseek_text");
 }
 
-function normalizeVisionCandidate(content: string): ExtractionCandidate {
+function normalizeVisionCandidate(content: string): ExtractionCandidate[] {
+  return normalizeProviderCandidates(content, "vision_llm");
+}
+
+function normalizeProviderCandidates(content: string, provider: ExtractionProviderName): ExtractionCandidate[] {
   const parsed = JSON.parse(content) as Partial<{
+    signals: Array<{
+      ticker: string;
+      action: string;
+      confidence: string | number;
+      summary: string;
+    }>;
     ticker: string;
     action: string;
     confidence: string | number;
     summary: string;
   }>;
-  const action: SignalAction = signalActionSchema.catch("观察").parse(parsed.action);
-  const confidence = normalizeConfidence(parsed.confidence);
-  const ticker = typeof parsed.ticker === "string" && parsed.ticker.trim() ? parsed.ticker.trim().toUpperCase() : "UNKNOWN";
-  const summary = typeof parsed.summary === "string" && parsed.summary.trim()
-    ? parsed.summary.trim()
-    : `Kimi Vision 解析候选 ticker=${ticker}，action=${action}，confidence=${confidence}。`;
+  const rawSignals = Array.isArray(parsed.signals) && parsed.signals.length ? parsed.signals : [parsed];
 
-  return {
-    provider: "vision_llm",
-    ticker,
-    action,
-    confidence,
-    summary,
-    status: "success",
-    fallbackUsed: false,
-    retryable: false
-  };
+  return rawSignals.map((signal) => {
+    const action: SignalAction = signalActionSchema.catch("观察").parse(signal.action);
+    const confidence = normalizeConfidence(signal.confidence);
+    const ticker = typeof signal.ticker === "string" && signal.ticker.trim() ? signal.ticker.trim().toUpperCase() : "UNKNOWN";
+    const summary = typeof signal.summary === "string" && signal.summary.trim()
+      ? signal.summary.trim()
+      : `${provider} 解析候选 ticker=${ticker}，action=${action}，confidence=${confidence}。`;
+
+    return {
+      provider,
+      ticker,
+      action,
+      confidence,
+      summary,
+      status: "success",
+      fallbackUsed: false,
+      retryable: false
+    };
+  });
+}
+
+function normalizeProviderResult(result: ExtractionCandidate | ExtractionCandidate[]) {
+  return Array.isArray(result) ? result : [result];
 }
 
 function normalizeConfidence(value: string | number | undefined) {

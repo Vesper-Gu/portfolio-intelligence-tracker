@@ -17,7 +17,8 @@ import {
   type HoldingRecord,
   type IngestItem,
   type QualityEvent,
-  type SourceItem
+  type SourceItem,
+  type UpdateExtractionCandidateRequest
 } from "@pit/shared";
 import type {
   AcceptIngestItemRequest,
@@ -47,6 +48,7 @@ import {
 import { createDatabase } from "../db/connection.js";
 import type { PortfolioRepository } from "./portfolioRepository.js";
 import { buildEvidenceDashboard, buildPortfolioPositions } from "../portfolio/positions.js";
+import { fallbackCandidate, isValidExtractedTicker, normalizeExtractedTicker, type ExtractionCandidate as ProviderCandidate } from "../extraction/ruleExtractor.js";
 import type { RagRetrievalRequest } from "../rag/retrieval.js";
 
 export interface DatabaseRepositoryOptions {
@@ -257,7 +259,7 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
 
   async createExtractionCandidate(userId: string, request: CreateExtractionCandidateRequest) {
     const candidate = {
-      id: `EXT-${Date.now()}`,
+      id: `EXT-${Date.now()}-${randomUUID().slice(0, 8)}`,
       userId,
       ...request,
       fallbackUsed: request.fallbackUsed === undefined ? undefined : request.fallbackUsed ? 1 : 0,
@@ -266,6 +268,29 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
     const [row] = await this.db.insert(extractionCandidatesTable).values(candidate).returning();
 
     return mapExtractionCandidateRow(row);
+  }
+
+  async updateExtractionCandidate(userId: string, id: string, request: UpdateExtractionCandidateRequest) {
+    const [row] = await this.db
+      .update(extractionCandidatesTable)
+      .set({
+        ...request,
+        fallbackUsed: request.fallbackUsed === undefined ? undefined : request.fallbackUsed ? 1 : 0,
+        retryable: request.retryable === undefined ? undefined : request.retryable ? 1 : 0
+      })
+      .where(and(eq(extractionCandidatesTable.userId, userId), eq(extractionCandidatesTable.id, id)))
+      .returning();
+
+    return row ? mapExtractionCandidateRow(row) : undefined;
+  }
+
+  async deleteExtractionCandidate(userId: string, id: string) {
+    const [row] = await this.db
+      .delete(extractionCandidatesTable)
+      .where(and(eq(extractionCandidatesTable.userId, userId), eq(extractionCandidatesTable.id, id)))
+      .returning();
+
+    return row ? mapExtractionCandidateRow(row) : undefined;
   }
 
   async createIngestItem(userId: string, request: CreateIngestItemRequest) {
@@ -307,7 +332,18 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
     const updatedItem = await this.updateIngestItem(userId, id, { status: "已接受", rawText });
 
     if (updatedItem) {
-      await this.createAcceptedHolding(userId, updatedItem);
+      const candidates = await this.acceptableCandidatesForItem(userId, updatedItem);
+
+      if (candidates.length === 0) {
+        await this.updateIngestItem(userId, id, { status: "待复核", rawText });
+        throw new Error("No valid extraction candidate to accept");
+      }
+
+      await this.archiveHoldingsMissingFromCandidates(userId, updatedItem.id, candidates.map((candidate) => candidate.ticker));
+
+      for (const candidate of candidates) {
+        await this.createAcceptedHolding(userId, updatedItem, candidate);
+      }
     }
 
     return updatedItem;
@@ -454,16 +490,40 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
     return row ? mapIngestItemRow(row) : undefined;
   }
 
-  private async createAcceptedHolding(userId: string, item: IngestItem) {
-    const action = item.extractedAction ?? "观察";
-    const confidence = item.extractedConfidence ?? item.confidence;
-    const holdingId = `HLD-${item.id}`;
-    const eventId = `HEV-${item.id}`;
-    const summary = item.extractionSummary ?? `人工接受 ${item.ticker} 候选记录`;
+  private async acceptableCandidatesForItem(userId: string, item: IngestItem) {
+    const storedCandidates = await this.getExtractionCandidates(userId, item.id);
+    const candidates = storedCandidates.length ? storedCandidates : [fallbackCandidate(item)];
+    const byTicker = new Map<string, ProviderCandidate>();
+
+    for (const candidate of candidates) {
+      const ticker = normalizeExtractedTicker(candidate.ticker);
+      if (!isValidExtractedTicker(ticker)) continue;
+      if (!byTicker.has(ticker)) byTicker.set(ticker, { ...candidate, ticker });
+    }
+
+    return [...byTicker.values()];
+  }
+
+  private async archiveHoldingsMissingFromCandidates(userId: string, ingestItemId: string, tickers: string[]) {
+    const tickerSet = new Set(tickers.map(normalizeExtractedTicker));
+    const currentHoldings = await this.getHoldings(userId);
+
+    await Promise.all(currentHoldings
+      .filter((holding) => holding.sourceIngestItemId === ingestItemId && !tickerSet.has(holding.ticker))
+      .map((holding) => this.setHoldingStatus(userId, holding.id, "已归档")));
+  }
+
+  private async createAcceptedHolding(userId: string, item: IngestItem, candidate: ProviderCandidate) {
+    const ticker = normalizeExtractedTicker(candidate.ticker);
+    const action = candidate.action;
+    const confidence = candidate.confidence;
+    const holdingId = `HLD-${item.id}-${ticker}`;
+    const eventId = `HEV-${item.id}-${ticker}`;
+    const summary = candidate.summary;
     const [existingEvent] = await this.db
       .select()
       .from(holdingEventsTable)
-      .where(and(eq(holdingEventsTable.userId, userId), eq(holdingEventsTable.ingestItemId, item.id)))
+      .where(and(eq(holdingEventsTable.userId, userId), eq(holdingEventsTable.id, eventId)))
       .limit(1);
     const [existingHolding] = await this.db
       .select()
@@ -475,7 +535,7 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
       await this.db
         .update(holdingsTable)
         .set({
-          ticker: item.ticker,
+          ticker,
           source: item.source,
           sourceName: item.sourceName,
           sourceType: item.sourceType,
@@ -492,7 +552,7 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
       await this.db.insert(holdingsTable).values({
         id: holdingId,
         userId,
-        ticker: item.ticker,
+        ticker,
         source: item.source,
         sourceName: item.sourceName,
         sourceType: item.sourceType,
@@ -510,7 +570,7 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
         .update(holdingEventsTable)
         .set({
           holdingId,
-          ticker: item.ticker,
+          ticker,
           action,
           confidence,
           summary
@@ -522,7 +582,7 @@ export class DatabasePortfolioRepository implements PortfolioRepository {
         userId,
         holdingId,
         ingestItemId: item.id,
-        ticker: item.ticker,
+        ticker,
         action,
         confidence,
         summary

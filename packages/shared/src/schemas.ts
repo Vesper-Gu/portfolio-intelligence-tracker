@@ -135,6 +135,19 @@ export const createExtractionCandidateRequestSchema = extractionCandidateSchema.
   createdAt: true
 });
 
+export const updateExtractionCandidateRequestSchema = z.object({
+  ticker: z.string().min(1).optional(),
+  action: signalActionSchema.optional(),
+  confidence: z.string().min(1).optional(),
+  summary: z.string().min(1).optional(),
+  status: extractionStatusSchema.optional(),
+  fallbackUsed: z.boolean().optional(),
+  retryable: z.boolean().optional(),
+  providerError: z.string().optional()
+}).refine((value) => Object.keys(value).length > 0, {
+  message: "At least one field must be provided"
+});
+
 export const createIngestItemRequestSchema = z.object({
   source: z.string().min(1),
   sourceName: z.string().min(1).optional(),
@@ -383,6 +396,7 @@ export type HoldingEvent = z.infer<typeof holdingEventSchema>;
 export type PortfolioPosition = z.infer<typeof portfolioPositionSchema>;
 export type CreateIngestItemRequest = z.infer<typeof createIngestItemRequestSchema>;
 export type CreateExtractionCandidateRequest = z.infer<typeof createExtractionCandidateRequestSchema>;
+export type UpdateExtractionCandidateRequest = z.infer<typeof updateExtractionCandidateRequestSchema>;
 export type AcceptIngestItemRequest = z.infer<typeof acceptIngestItemRequestSchema>;
 export type RejectIngestItemRequest = z.infer<typeof rejectIngestItemRequestSchema>;
 export type UpdateIngestItemRequest = z.infer<typeof updateIngestItemRequestSchema>;

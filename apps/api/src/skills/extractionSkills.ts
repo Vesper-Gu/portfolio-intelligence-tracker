@@ -8,7 +8,7 @@ interface ExtractionSkillOptions {
   model?: string;
 }
 
-export class ExtractTextSignalSkill implements Skill<IngestItem, ExtractionCandidate> {
+export class ExtractTextSignalSkill implements Skill<IngestItem, ExtractionCandidate[]> {
   readonly name = "extract_text_signal" as const;
   readonly version = "1.0.0";
   readonly capability = "extract_signal" as const;
@@ -23,12 +23,12 @@ export class ExtractTextSignalSkill implements Skill<IngestItem, ExtractionCandi
 
   async execute(item: IngestItem) {
     if (item.kind === "screenshot") throw new Error("Text extraction skill does not accept screenshots");
-    const candidate = await this.options.provider.extract(item);
-    return extractionResult(candidate, this.options.model);
+    const candidates = normalizeCandidates(await this.options.provider.extract(item));
+    return extractionResult(candidates, this.options.model);
   }
 }
 
-export class ExtractImageSignalSkill implements Skill<IngestItem, ExtractionCandidate> {
+export class ExtractImageSignalSkill implements Skill<IngestItem, ExtractionCandidate[]> {
   readonly name = "extract_image_signal" as const;
   readonly version = "1.0.0";
   readonly capability = "extract_signal" as const;
@@ -43,24 +43,30 @@ export class ExtractImageSignalSkill implements Skill<IngestItem, ExtractionCand
 
   async execute(item: IngestItem) {
     if (item.kind !== "screenshot") throw new Error("Image extraction skill requires a screenshot");
-    const candidate = await this.options.provider.extract(item);
-    return extractionResult(candidate, this.options.model);
+    const candidates = normalizeCandidates(await this.options.provider.extract(item));
+    return extractionResult(candidates, this.options.model);
   }
 }
 
-function extractionResult(candidate: ExtractionCandidate, model?: string) {
+function extractionResult(candidates: ExtractionCandidate[], model?: string) {
+  const primary = candidates[0];
+
   return {
-    value: candidate,
+    value: candidates,
     diagnostics: {
-      provider: candidate.provider,
+      provider: primary.provider,
       model,
       promptVersion: "extraction-v1",
       inputUnits: 1,
-      outputUnits: 1,
-      estimatedCostMicrousd: estimateExtractionCost(candidate.provider),
-      fallbackUsed: candidate.fallbackUsed ?? false
+      outputUnits: candidates.length,
+      estimatedCostMicrousd: estimateExtractionCost(primary.provider),
+      fallbackUsed: candidates.some((candidate) => candidate.fallbackUsed)
     }
   };
+}
+
+function normalizeCandidates(result: ExtractionCandidate | ExtractionCandidate[]) {
+  return Array.isArray(result) ? result : [result];
 }
 
 function estimateExtractionCost(provider: string) {

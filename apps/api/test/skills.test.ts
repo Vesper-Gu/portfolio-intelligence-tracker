@@ -116,7 +116,7 @@ test("text and image extraction providers are wrapped as separate skills", async
   const text = await textSkill.execute(textItem);
   const image = await imageSkill.execute(imageItem);
 
-  assert.equal(text.value.provider, "rule_v1");
+  assert.equal(text.value[0]?.provider, "rule_v1");
   assert.equal(text.diagnostics?.fallbackUsed, true);
   assert.equal(text.diagnostics?.model, "text-model");
   assert.equal(image.diagnostics?.model, "vision-model");

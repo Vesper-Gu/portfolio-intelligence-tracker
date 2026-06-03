@@ -10,7 +10,8 @@ import {
   type HoldingEvent,
   type HoldingRecord,
   type IngestItem,
-  type QualityEvent
+  type QualityEvent,
+  type UpdateExtractionCandidateRequest
 } from "@pit/shared";
 import type {
   AcceptIngestItemRequest,
@@ -20,6 +21,7 @@ import type {
   UpdateIngestItemRequest
 } from "@pit/shared";
 import { buildEvidenceDashboard, buildPortfolioPositions } from "../portfolio/positions.js";
+import { fallbackCandidate, isValidExtractedTicker, normalizeExtractedTicker, type ExtractionCandidate as ProviderCandidate } from "../extraction/ruleExtractor.js";
 import type { PortfolioRepository } from "./portfolioRepository.js";
 
 interface MockUserState {
@@ -150,6 +152,29 @@ export function createMockRepository(): PortfolioRepository {
       state.extractionCandidates = [candidate, ...state.extractionCandidates];
       return candidate;
     },
+    updateExtractionCandidate(userId, id, request: UpdateExtractionCandidateRequest) {
+      const state = stateFor(userId);
+      const index = state.extractionCandidates.findIndex((candidate) => candidate.id === id);
+
+      if (index === -1) return undefined;
+
+      const candidate = { ...state.extractionCandidates[index], ...request };
+      state.extractionCandidates = [
+        ...state.extractionCandidates.slice(0, index),
+        candidate,
+        ...state.extractionCandidates.slice(index + 1)
+      ];
+      return candidate;
+    },
+    deleteExtractionCandidate(userId, id) {
+      const state = stateFor(userId);
+      const candidate = state.extractionCandidates.find((item) => item.id === id);
+
+      if (!candidate) return undefined;
+
+      state.extractionCandidates = state.extractionCandidates.filter((item) => item.id !== id);
+      return candidate;
+    },
     createIngestItem(userId, request: CreateIngestItemRequest) {
       const state = stateFor(userId);
       const item: IngestItem = {
@@ -187,7 +212,17 @@ export function createMockRepository(): PortfolioRepository {
 
       const updatedItem = updateItem(state, id, patch);
 
-      if (updatedItem) createAcceptedHolding(state, updatedItem);
+      if (updatedItem) {
+        const candidates = acceptableCandidatesForItem(state, updatedItem);
+
+        if (candidates.length === 0) {
+          updateItem(state, id, { status: "待复核" });
+          throw new Error("No valid extraction candidate to accept");
+        }
+
+        archiveHoldingsMissingFromCandidates(state, updatedItem.id, candidates.map((candidate) => candidate.ticker));
+        for (const candidate of candidates) createAcceptedHolding(state, updatedItem, candidate);
+      }
       return updatedItem;
     },
     rejectIngestItem(userId, id, request: RejectIngestItemRequest) {
@@ -312,7 +347,16 @@ function seedDemoAcceptedHoldings(state: MockUserState) {
     item.status = "已接受";
     item.extractedAction = seed.action;
     item.extractionSummary = seed.summary;
-    createAcceptedHolding(state, item);
+    createAcceptedHolding(state, item, {
+      provider: "rule_v1",
+      ticker: item.ticker,
+      action: seed.action,
+      confidence: item.extractedConfidence ?? item.confidence,
+      summary: seed.summary,
+      status: "success",
+      fallbackUsed: false,
+      retryable: false
+    });
   }
 }
 
@@ -339,13 +383,39 @@ function setHoldingArchiveStatus(state: MockUserState, id: string, status: Holdi
   return nextHolding;
 }
 
-function createAcceptedHolding(state: MockUserState, item: IngestItem) {
+function acceptableCandidatesForItem(state: MockUserState, item: IngestItem) {
+  const storedCandidates = state.extractionCandidates.filter((candidate) => candidate.ingestItemId === item.id);
+  const candidates = storedCandidates.length ? storedCandidates : [fallbackCandidate(item)];
+  const byTicker = new Map<string, ProviderCandidate>();
+
+  for (const candidate of candidates) {
+    const ticker = normalizeExtractedTicker(candidate.ticker);
+    if (!isValidExtractedTicker(ticker)) continue;
+    if (!byTicker.has(ticker)) byTicker.set(ticker, { ...candidate, ticker });
+  }
+
+  return [...byTicker.values()];
+}
+
+function archiveHoldingsMissingFromCandidates(state: MockUserState, ingestItemId: string, tickers: string[]) {
+  const tickerSet = new Set(tickers.map(normalizeExtractedTicker));
+  state.holdings = state.holdings.map((holding) => (
+    holding.sourceIngestItemId === ingestItemId && !tickerSet.has(holding.ticker)
+      ? { ...holding, status: "已归档", updatedAt: new Date().toISOString() }
+      : holding
+  ));
+}
+
+function createAcceptedHolding(state: MockUserState, item: IngestItem, candidate: ProviderCandidate) {
   const now = new Date().toISOString();
-  const action = item.extractedAction ?? "观察";
-  const confidence = item.extractedConfidence ?? item.confidence;
+  const ticker = normalizeExtractedTicker(candidate.ticker);
+  const action = candidate.action;
+  const confidence = candidate.confidence;
+  const holdingId = `HLD-${item.id}-${ticker}`;
+  const eventId = `HEV-${item.id}-${ticker}`;
   const holding: HoldingRecord = {
-    id: `HLD-${item.id}`,
-    ticker: item.ticker,
+    id: holdingId,
+    ticker,
     source: item.source,
     sourceName: item.sourceName,
     sourceType: item.sourceType,
@@ -359,16 +429,16 @@ function createAcceptedHolding(state: MockUserState, item: IngestItem) {
     updatedAt: now
   };
   const event: HoldingEvent = {
-    id: `HEV-${item.id}`,
+    id: eventId,
     holdingId: holding.id,
     ingestItemId: item.id,
-    ticker: item.ticker,
+    ticker,
     action,
     confidence,
-    summary: item.extractionSummary ?? `人工加入 ${item.ticker} 资料库`,
+    summary: candidate.summary,
     createdAt: now
   };
 
   state.holdings = [holding, ...state.holdings.filter((candidate) => candidate.id !== holding.id)];
-  state.holdingEvents = [event, ...state.holdingEvents.filter((candidate) => candidate.ingestItemId !== item.id)];
+  state.holdingEvents = [event, ...state.holdingEvents.filter((candidate) => candidate.id !== event.id)];
 }

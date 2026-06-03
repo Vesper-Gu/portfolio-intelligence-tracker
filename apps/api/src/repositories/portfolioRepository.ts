@@ -2,6 +2,7 @@ import type {
   AcceptIngestItemRequest,
   CreateIngestItemRequest,
   CreateExtractionCandidateRequest,
+  UpdateExtractionCandidateRequest,
   DashboardPayload,
   ExtractionCandidate,
   HoldingEvent,
@@ -38,6 +39,8 @@ export interface PortfolioRepository {
   getExtractionCandidatesByIngestItemIds?(userId: string, ingestItemIds: string[]): Promise<ExtractionCandidate[]> | ExtractionCandidate[];
   getRagRetrievalSnapshot?(request: RagRetrievalRequest): Promise<RagRetrievalSnapshot> | RagRetrievalSnapshot;
   createExtractionCandidate(userId: string, request: CreateExtractionCandidateRequest): Promise<ExtractionCandidate> | ExtractionCandidate;
+  updateExtractionCandidate?(userId: string, id: string, request: UpdateExtractionCandidateRequest): Promise<ExtractionCandidate | undefined> | ExtractionCandidate | undefined;
+  deleteExtractionCandidate?(userId: string, id: string): Promise<ExtractionCandidate | undefined> | ExtractionCandidate | undefined;
   createIngestItem(userId: string, request: CreateIngestItemRequest): Promise<IngestItem> | IngestItem;
   acceptIngestItem(userId: string, id: string, request: AcceptIngestItemRequest): Promise<IngestItem | undefined> | IngestItem | undefined;
   rejectIngestItem(userId: string, id: string, request: RejectIngestItemRequest): Promise<IngestItem | undefined> | IngestItem | undefined;
