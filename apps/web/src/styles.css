@@ -3999,6 +3999,7 @@ h1 {
   width: min(460px, 100%);
   height: auto;
   overflow: visible;
+  animation: distribution-donut-settle 720ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .distribution-donut-track,
@@ -4012,6 +4013,7 @@ h1 {
   fill: rgba(12, 16, 19, 0.96);
   stroke: rgba(166, 179, 189, 0.12);
   stroke-width: 1;
+  animation: distribution-fade-up 420ms ease 520ms both;
 }
 
 .distribution-slice {
@@ -4021,7 +4023,12 @@ h1 {
   cursor: pointer;
   opacity: 0.74;
   filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.24));
-  transition: opacity 160ms ease, stroke-width 160ms ease, filter 160ms ease;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: distribution-slice-draw 680ms cubic-bezier(0.22, 0.9, 0.24, 1) var(--slice-delay, 0ms) forwards;
+  transition: opacity 180ms ease, stroke-width 180ms ease, filter 180ms ease;
 }
 
 .distribution-slice:hover,
@@ -4029,6 +4036,10 @@ h1 {
   stroke-width: 45;
   opacity: 1;
   filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.34));
+}
+
+.distribution-slice:not(.selected) {
+  opacity: 0.68;
 }
 
 .distribution-slice:focus {
@@ -4041,6 +4052,7 @@ h1 {
   justify-items: center;
   gap: 5px;
   pointer-events: none;
+  animation: distribution-fade-up 180ms ease both;
 }
 
 .distribution-donut-center span {
@@ -4070,6 +4082,7 @@ h1 {
   gap: 16px;
   align-items: start;
   min-width: 0;
+  animation: distribution-detail-in 220ms ease both;
 }
 
 .distribution-selected-copy {
@@ -4162,6 +4175,7 @@ h1 {
 }
 
 .distribution-rank-list button {
+  position: relative;
   display: grid;
   grid-template-columns: 28px 10px minmax(0, 1fr) auto auto;
   gap: 10px;
@@ -4174,12 +4188,36 @@ h1 {
   padding: 0 12px;
   text-align: left;
   cursor: pointer;
+  overflow: hidden;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.distribution-rank-list button::before {
+  position: absolute;
+  inset: 8px auto 8px 0;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--rank-color, rgba(120, 184, 214, 0.8));
+  content: "";
+  opacity: 0;
+  transform: translateX(-3px);
+  transition: opacity 160ms ease, transform 160ms ease;
 }
 
 .distribution-rank-list button.active,
 .distribution-rank-list button:hover {
-  border-color: rgba(120, 184, 214, 0.3);
-  background: rgba(120, 184, 214, 0.08);
+  border-color: color-mix(in srgb, var(--rank-color, #78b8d6) 44%, rgba(166, 179, 189, 0.18));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rank-color, #78b8d6) 14%, transparent), rgba(120, 184, 214, 0.045));
+}
+
+.distribution-rank-list button.active::before,
+.distribution-rank-list button:hover::before {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.distribution-rank-list button:active {
+  transform: translateY(1px);
 }
 
 .distribution-rank-list em {
@@ -4221,6 +4259,52 @@ h1 {
 .distribution-empty-panel .panel-link-button {
   margin: 0 18px 18px;
   width: 180px;
+}
+
+@keyframes distribution-slice-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes distribution-donut-settle {
+  from {
+    opacity: 0.72;
+    transform: scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes distribution-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes distribution-detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 1180px) {
@@ -4276,5 +4360,25 @@ h1 {
 
   .distribution-rank-list b {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .distribution-donut,
+  .distribution-donut-hole,
+  .distribution-slice,
+  .distribution-donut-center,
+  .distribution-selected-card {
+    animation: none;
+  }
+
+  .distribution-slice {
+    stroke-dashoffset: 0;
+    transition: opacity 80ms ease, stroke-width 80ms ease;
+  }
+
+  .distribution-rank-list button,
+  .distribution-rank-list button::before {
+    transition: none;
   }
 }

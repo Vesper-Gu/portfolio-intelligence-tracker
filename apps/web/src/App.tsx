@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ChangeEvent, type FormEvent } from "react";
 import {
   dashboardPayload as fallbackDashboardPayload,
   sources as fallbackSources,
@@ -1141,7 +1141,7 @@ function TickerDistributionView({
                 <svg className="distribution-donut" role="img" viewBox="0 0 360 360">
                   <title>按 ticker 出现频次统计的资料占比</title>
                   <circle className="distribution-donut-track" cx="180" cy="180" r="128" />
-                  {slices.map((slice) => {
+                  {slices.map((slice, index) => {
                     const startAngle = cursorAngle;
                     const endAngle = cursorAngle + slice.percent * 360;
                     cursorAngle = endAngle;
@@ -1149,6 +1149,10 @@ function TickerDistributionView({
                     const midAngle = (startAngle + endAngle) / 2;
                     const offset = isSelected ? 9 : 0;
                     const offsetPoint = polarToCartesian(0, 0, offset, midAngle);
+                    const sliceStyle = {
+                      "--slice-color": slice.color,
+                      "--slice-delay": `${index * 45}ms`
+                    } as CSSProperties;
 
                     if (slice.percent >= 0.999) {
                       return (
@@ -1162,9 +1166,11 @@ function TickerDistributionView({
                           onDoubleClick={() => {
                             if (!slice.isOther && slice.position) onOpenTicker(slice.position.ticker);
                           }}
+                          pathLength="100"
                           r="128"
                           role="button"
                           stroke={slice.color}
+                          style={sliceStyle}
                           tabIndex={0}
                         />
                       );
@@ -1180,22 +1186,24 @@ function TickerDistributionView({
                         onDoubleClick={() => {
                           if (!slice.isOther && slice.position) onOpenTicker(slice.position.ticker);
                         }}
+                        pathLength="100"
                         role="button"
                         stroke={slice.color}
+                        style={sliceStyle}
                         tabIndex={0}
                       />
                     );
                   })}
                   <circle className="distribution-donut-hole" cx="180" cy="180" r="82" />
                 </svg>
-                <div className="distribution-donut-center">
+                <div className="distribution-donut-center" key={`center-${selectedSlice.ticker}`}>
                   <span>当前占比</span>
                   <strong>{(selectedSlice.percent * 100).toFixed(1)}%</strong>
                   <em>{selectedSlice.label}</em>
                 </div>
               </div>
 
-              <div className="distribution-selected-card">
+              <div className="distribution-selected-card" key={`detail-${selectedSlice.ticker}`} style={{ "--selected-color": selectedSlice.color } as CSSProperties}>
                 <TickerBrandBadge slice={selectedSlice} />
                 <div className="distribution-selected-copy">
                   <span>{selectedSlice.isOther ? "汇总分组" : selectedBrand?.name}</span>
@@ -1230,6 +1238,7 @@ function TickerDistributionView({
                   className={selectedSlice.ticker === slice.ticker ? "active" : undefined}
                   key={slice.ticker}
                   onClick={() => setSelectedTicker(slice.ticker)}
+                  style={{ "--rank-color": slice.color } as CSSProperties}
                   type="button"
                 >
                   <em>{String(index + 1).padStart(2, "0")}</em>
