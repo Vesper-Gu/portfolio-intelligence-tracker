@@ -48,7 +48,7 @@ import { getCurrentSession, isExternalAuthEnabled, signIn, signOut, subscribeToS
 import { setAccessToken } from "./api";
 
 const navItems: Array<{ key: ViewKey; label: string }> = [
-  { key: "dashboard", label: "总览" },
+  { key: "dashboard", label: "首页" },
   { key: "distribution", label: "分布" },
   { key: "ingest", label: "录入" },
   { key: "library", label: "标的资料库" },
@@ -544,7 +544,7 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
     if (view === "rag") return "问投研资料 / Evidence-grounded Answers";
     if (view === "settings") return "账户与数据";
     if (view === "sources") return "来源设置 / KOL 与数据源管理";
-    return "总览 / 今日资料库";
+    return "持仓图谱 / Portfolio Intelligence";
   }, [view]);
 
   return (
@@ -594,16 +594,13 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
           {view === "dashboard" && (
             <DashboardView
               dataStatus={dataStatus}
-              onOpenIngest={(ingestId) => {
-                setFocusedIngestId(ingestId ?? null);
+              onOpenIngest={() => {
+                setFocusedIngestId(null);
                 setView("ingest");
               }}
               onOpenLibrary={() => setView("library")}
               onOpenDistribution={() => setView("distribution")}
-              onOpenEvidence={setEvidenceIngestId}
-              pendingIngestItems={pendingIngestItems}
               portfolioPositions={portfolioPositions}
-              recentEvents={recentEvents}
             />
           )}
           {view === "distribution" && (
@@ -927,113 +924,73 @@ function DashboardView({
   onOpenIngest,
   onOpenDistribution,
   onOpenLibrary,
-  onOpenEvidence,
-  pendingIngestItems,
-  portfolioPositions,
-  recentEvents
+  portfolioPositions
 }: {
   dataStatus: "api" | "error" | "loading";
-  onOpenIngest: (ingestId?: string) => void;
+  onOpenIngest: () => void;
   onOpenDistribution: () => void;
   onOpenLibrary: () => void;
-  onOpenEvidence: (ingestId: string) => void;
-  pendingIngestItems: IngestItem[];
   portfolioPositions: PortfolioPosition[];
-  recentEvents: HoldingEvent[];
 }) {
-  const latestEvents = [...recentEvents].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
-  const visiblePendingItems = pendingIngestItems.slice(0, 5);
-  const confirmedHoldingCount = portfolioPositions.reduce((sum, position) => sum + position.holdingsCount, 0);
-  const sourceCount = new Set(portfolioPositions.flatMap((position) => position.sources)).size;
-  const latestEvent = latestEvents[0];
-  const topTicker = [...portfolioPositions].sort((a, b) => b.holdingsCount - a.holdingsCount)[0];
+  const frequency = buildTickerFrequencyModel(portfolioPositions);
 
   return (
-    <div className="dashboard-stack">
-      <section className="dashboard-hero dashboard-hero-compact">
-        <div className="dashboard-hero-copy">
+    <div className="home-page">
+      <section className="home-hero">
+        <div className="home-hero-copy">
           <span>{publicDemoMode ? "Demo Research Workspace" : "Research Workspace"}</span>
-          <h2>集中管理投研资料。</h2>
-          {publicDemoMode && (
-            <div className="demo-note">
-              当前是合成数据 Demo：不上传真实截图，不连接真实模型，不提供投资建议。
-            </div>
-          )}
+          <h2>把分散的投研线索，整理成可追溯的标的图谱。</h2>
+          <p>粘贴研报、笔记或链接，确认解析出的 ticker 和动作后，系统会自动生成分布、证据链和可追问的资料库。</p>
+          <div className="home-hero-actions">
+            <button className="primary-action" onClick={onOpenIngest} type="button">导入资料</button>
+            <button className="secondary-action" onClick={onOpenDistribution} type="button">查看分布</button>
+          </div>
+          <div className="home-trust-note">
+            {publicDemoMode
+              ? "当前为合成数据 Demo：不上传真实截图，不连接真实模型，不提供投资建议。"
+              : "文本与链接先进入确认队列，只有确认后的资料会进入分布和资料库。"}
+          </div>
         </div>
-        <div className="dashboard-metrics" aria-label="资料库摘要">
-          <MetricCard label="已确认标的" value={`${portfolioPositions.length}`} detail={`${confirmedHoldingCount} 条资料`} tone="positive" />
-          <MetricCard label="待处理资料" value={`${pendingIngestItems.length}`} detail={pendingIngestItems.length ? "需要复核" : "队列清空"} tone={pendingIngestItems.length ? "warning" : "neutral"} />
-          <MetricCard label="来源主体" value={`${sourceCount}`} detail={sourceCount ? "可追溯" : "等待录入"} tone="neutral" />
-          <MetricCard label="最近事件" value={latestEvent ? latestEvent.ticker : "暂无"} detail={latestEvent ? `${latestEvent.action} · ${formatShortDate(latestEvent.createdAt)}` : "暂无变化"} tone={latestEvent ? actionTone(latestEvent.action) : "neutral"} />
+        <TickerDistributionPreviewCard
+          dataStatus={dataStatus}
+          frequency={frequency}
+          onOpenDistribution={onOpenDistribution}
+          onOpenIngest={onOpenIngest}
+        />
+      </section>
+
+      <section className="home-workflow" aria-label="资料生成分布流程">
+        <div className="home-workflow-card">
+          <span>01</span>
+          <strong>粘贴文本或链接</strong>
+          <p>把研报摘要、KOL 观点、个人笔记或公告链接放进录入队列。</p>
+        </div>
+        <div className="home-workflow-card">
+          <span>02</span>
+          <strong>确认候选信号</strong>
+          <p>人工确认 ticker、动作、来源和依据，避免未经确认的内容进入图谱。</p>
+        </div>
+        <div className="home-workflow-card">
+          <span>03</span>
+          <strong>生成分布与证据链</strong>
+          <p>按已确认资料生成 ticker 频次占比，并连接到资料库和问答引用。</p>
         </div>
       </section>
 
-      <div className="dashboard-minimal-grid">
-        <section className="panel dashboard-side-panel">
-        <div className="panel-header">
-          <span>待处理资料</span>
-          <strong>{pendingIngestItems.length}</strong>
-        </div>
-        {visiblePendingItems.length === 0 ? (
-          <p className="empty-state">{dataStatus === "error" ? "无法读取待处理资料。" : "暂无待处理资料。"}</p>
-        ) : (
-          <div className="compact-list">
-            {visiblePendingItems.map((item) => (
-              <button className="compact-row" key={item.id} onClick={() => onOpenIngest(item.id)} type="button">
-                <strong>{item.ticker}</strong>
-                <span>{item.kind} · {item.status}</span>
-                <em>{formatSourceForUser(item.source)}</em>
-              </button>
-            ))}
-          </div>
-        )}
-        <button className="panel-link-button" onClick={() => onOpenIngest()} type="button">进入录入队列</button>
-        </section>
-
-        <section className="panel dashboard-recent-panel">
-        <div className="panel-header">
-          <span>最近变化</span>
-          <strong>{latestEvents.length ? `${latestEvents.length} 条` : "暂无"}</strong>
-        </div>
-        {latestEvents.length === 0 ? (
-          <p className="empty-state">暂无最近确认事件。</p>
-        ) : (
-          <div className="timeline-list">
-            {latestEvents.map((event) => (
-              <button className="timeline-row" key={event.id} onClick={() => onOpenEvidence(event.ingestItemId)} type="button">
-                <span className={toneClass[actionTone(event.action)]}>{event.ticker}</span>
-                <strong>{event.action} · {formatShortDate(event.createdAt)}</strong>
-                <em>{hideConfidenceText(event.summary)}</em>
-              </button>
-            ))}
-          </div>
-        )}
-        </section>
-
-        <section className="panel dashboard-actions-panel">
-          <div className="panel-header">
-            <span>下一步</span>
-            <strong>{dataStatus === "api" ? "API 实时" : dataStatus === "loading" ? "加载中" : "连接失败"}</strong>
-          </div>
-          <div className="dashboard-action-list">
-            <button onClick={onOpenDistribution} type="button">
-              <span>看分布</span>
-              <strong>{topTicker ? `${topTicker.ticker} 最高频` : "等待资料"}</strong>
-              <em>查看 ticker 频次、占比和集中度</em>
-            </button>
-            <button onClick={onOpenLibrary} type="button">
-              <span>查资料库</span>
-              <strong>{portfolioPositions.length ? `${portfolioPositions.length} 个标的` : "暂无标的"}</strong>
-              <em>打开聚合记录和原始证据</em>
-            </button>
-            <button onClick={() => onOpenIngest()} type="button">
-              <span>处理队列</span>
-              <strong>{pendingIngestItems.length ? `${pendingIngestItems.length} 条待处理` : "队列清空"}</strong>
-              <em>录入、解析并确认新资料</em>
-            </button>
-          </div>
-        </section>
-      </div>
+      <section className="home-entry-band">
+        <button onClick={onOpenIngest} type="button">
+          <span>开始录入</span>
+          <strong>从一段文本或一个链接开始</strong>
+        </button>
+        <button onClick={onOpenDistribution} type="button">
+          <span>查看分布</span>
+          <strong>{frequency.slices[0] ? `${frequency.slices[0].label} 最高频` : "确认资料后自动生成"}</strong>
+        </button>
+        <button onClick={onOpenLibrary} type="button">
+          <span>打开资料库</span>
+          <strong>{frequency.activePositions.length ? `${frequency.activePositions.length} 个标的可追溯` : "等待已确认资料"}</strong>
+        </button>
+      </section>
     </div>
   );
 }
@@ -1048,27 +1005,20 @@ interface TickerFrequencySlice {
   isOther: boolean;
 }
 
-function TickerDistributionView({
-  dataStatus,
-  onOpenIngest,
-  onOpenLibrary,
-  onOpenRag,
-  onOpenTicker,
-  positions
-}: {
-  dataStatus: "api" | "error" | "loading";
-  onOpenIngest: () => void;
-  onOpenLibrary: () => void;
-  onOpenRag: (query: string) => void;
-  onOpenTicker: (ticker: string) => void;
-  positions: PortfolioPosition[];
-}) {
+interface TickerFrequencyModel {
+  activePositions: PortfolioPosition[];
+  otherPositions: PortfolioPosition[];
+  slices: TickerFrequencySlice[];
+  totalHoldings: number;
+}
+
+function buildTickerFrequencyModel(positions: PortfolioPosition[], maxSlices = 10): TickerFrequencyModel {
   const activePositions = positions
     .filter((position) => position.status === "活跃" && position.holdingsCount > 0)
     .sort((a, b) => b.holdingsCount - a.holdingsCount || a.ticker.localeCompare(b.ticker));
   const totalHoldings = activePositions.reduce((sum, position) => sum + position.holdingsCount, 0);
-  const visiblePositions = activePositions.slice(0, 10);
-  const otherPositions = activePositions.slice(10);
+  const visiblePositions = activePositions.slice(0, maxSlices);
+  const otherPositions = activePositions.slice(maxSlices);
   const otherValue = otherPositions.reduce((sum, position) => sum + position.holdingsCount, 0);
   const slices: TickerFrequencySlice[] = totalHoldings === 0 ? [] : [
     ...visiblePositions.map((position, index) => ({
@@ -1089,6 +1039,118 @@ function TickerDistributionView({
       isOther: true
     }] : [])
   ];
+
+  return { activePositions, otherPositions, slices, totalHoldings };
+}
+
+function TickerDistributionPreviewCard({
+  dataStatus,
+  frequency,
+  onOpenDistribution,
+  onOpenIngest
+}: {
+  dataStatus: "api" | "error" | "loading";
+  frequency: TickerFrequencyModel;
+  onOpenDistribution: () => void;
+  onOpenIngest: () => void;
+}) {
+  const topSlice = frequency.slices[0];
+  let cursorAngle = 0;
+
+  return (
+    <div className="home-preview-card">
+      <div className="home-preview-header">
+        <span>Distribution Preview</span>
+        <strong>{topSlice ? `${frequency.activePositions.length} 个标的` : "等待资料"}</strong>
+      </div>
+      <div className="home-preview-body">
+        <div className={topSlice ? "home-mini-donut" : "home-mini-donut empty"} aria-label="Ticker 分布预览">
+          {topSlice ? (
+            <svg viewBox="0 0 180 180" role="img">
+              <title>已确认资料的 ticker 分布预览</title>
+              <circle className="home-mini-donut-track" cx="90" cy="90" r="62" />
+              {frequency.slices.slice(0, 6).map((slice) => {
+                const startAngle = cursorAngle;
+                const endAngle = cursorAngle + slice.percent * 360;
+                cursorAngle = endAngle;
+                if (slice.percent >= 0.999) {
+                  return <circle className="home-mini-slice" cx="90" cy="90" key={slice.ticker} r="62" stroke={slice.color} />;
+                }
+
+                return (
+                  <path
+                    className="home-mini-slice"
+                    d={describeArc(90, 90, 62, startAngle, endAngle)}
+                    key={slice.ticker}
+                    stroke={slice.color}
+                  />
+                );
+              })}
+            </svg>
+          ) : (
+            <div className="home-mini-skeleton" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+          )}
+          <div>
+            <strong>{topSlice ? `${(topSlice.percent * 100).toFixed(1)}%` : "0%"}</strong>
+            <span>{topSlice?.label ?? "待生成"}</span>
+          </div>
+        </div>
+        <div className="home-preview-copy">
+          <strong>{topSlice ? `${topSlice.label} 是当前最高频标的` : "确认资料后自动生成分布"}</strong>
+          <p>
+            {topSlice
+              ? `${frequency.totalHoldings} 条已确认资料会汇总为 ticker 占比，并能继续打开证据链。`
+              : dataStatus === "error"
+                ? "当前无法读取资料库。恢复连接后，确认资料会自动生成分布。"
+                : "先粘贴文本或链接，确认解析结果后，这里会出现真实 ticker 分布。"}
+          </p>
+        </div>
+      </div>
+      {topSlice ? (
+        <div className="home-preview-rank">
+          {frequency.slices.slice(0, 3).map((slice) => (
+            <span key={slice.ticker}>
+              <i style={{ background: slice.color }} />
+              <b>{slice.label}</b>
+              <em>{(slice.percent * 100).toFixed(1)}%</em>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="home-preview-steps">
+          <span>1. 粘贴文本/链接</span>
+          <span>2. 确认 ticker 与动作</span>
+          <span>3. 生成占比图</span>
+        </div>
+      )}
+      <button className="panel-link-button" onClick={topSlice ? onOpenDistribution : onOpenIngest} type="button">
+        {topSlice ? "查看完整分布" : "去录入资料"}
+      </button>
+    </div>
+  );
+}
+
+function TickerDistributionView({
+  dataStatus,
+  onOpenIngest,
+  onOpenLibrary,
+  onOpenRag,
+  onOpenTicker,
+  positions
+}: {
+  dataStatus: "api" | "error" | "loading";
+  onOpenIngest: () => void;
+  onOpenLibrary: () => void;
+  onOpenRag: (query: string) => void;
+  onOpenTicker: (ticker: string) => void;
+  positions: PortfolioPosition[];
+}) {
+  const frequency = buildTickerFrequencyModel(positions);
+  const { activePositions, otherPositions, slices, totalHoldings } = frequency;
   const [selectedTicker, setSelectedTicker] = useState<string | null>(slices[0]?.ticker ?? null);
   const selectedSlice = slices.find((slice) => slice.ticker === selectedTicker) ?? slices[0];
   const selectedBrand = selectedSlice && !selectedSlice.isOther ? tickerBrand(selectedSlice.ticker) : undefined;
@@ -1124,10 +1186,25 @@ function TickerDistributionView({
         <section className="panel distribution-empty-panel">
           <div className="panel-header">
             <span>Ticker 频次分布</span>
-            <strong>等待资料</strong>
+            <strong>{dataStatus === "loading" ? "加载中" : "等待资料"}</strong>
           </div>
-          <p className="empty-state">确认资料后，这里会按 ticker 出现频次展示分布。</p>
-          <button className="panel-link-button" onClick={onOpenIngest} type="button">去录入资料</button>
+          <div className="distribution-onboarding">
+            <div className="distribution-onboarding-visual" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+            <div>
+              <h3>先确认资料，再生成分布。</h3>
+              <p>{dataStatus === "error" ? "当前无法读取资料库。恢复连接后，已确认资料会在这里生成 ticker 占比。" : "粘贴文本或链接后，确认解析出的 ticker、动作和来源，系统会自动把已确认资料汇总成分布图。"}</p>
+              <ol>
+                <li>粘贴研报、笔记或链接</li>
+                <li>确认候选 ticker 与动作</li>
+                <li>查看占比、排行和证据链</li>
+              </ol>
+              <button className="panel-link-button" onClick={onOpenIngest} type="button">去录入资料</button>
+            </div>
+          </div>
         </section>
       ) : (
         <section className="distribution-layout">
