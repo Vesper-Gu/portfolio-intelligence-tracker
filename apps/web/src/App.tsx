@@ -471,17 +471,22 @@ function LandingPage({ onStart }: { onStart: () => void }) {
       </nav>
 
       <section className="landing-hero">
+        <LandingSignalFlow />
         <div className="landing-hero-copy">
-          <span className="landing-kicker">给个人投资研究用的资料整理工具</span>
-          <h1>把看过的股票资料，整理成一张清楚的标的图。</h1>
-          <p>你粘贴研报、帖子或自己的笔记。系统帮你整理里面提到的股票、操作倾向和原文依据，最后生成一张分布图。</p>
+          <span className="landing-kicker">Information becomes structure</span>
+          <h1>
+            汇聚分散资料，
+            <br />
+            看见信息背后的变化。
+          </h1>
+          <p>把研报、帖子、公告和笔记放进来。系统会识别反复出现的标的、来源和操作倾向，再重新整理成可以追溯的研究资料库。</p>
           <div className="landing-actions">
             <button className="landing-primary" onClick={onStart} type="button">开始使用</button>
             <button className="landing-secondary" onClick={scrollToExample} type="button">查看示例</button>
           </div>
           <div className="landing-proof">
             <span>公开 Demo</span>
-            <span>可点回原始资料</span>
+            <span>信息来源可追溯</span>
             <span>不做买卖建议</span>
           </div>
         </div>
@@ -492,45 +497,45 @@ function LandingPage({ onStart }: { onStart: () => void }) {
       <section className="landing-feature-grid" id="landing-features">
         <div>
           <span>01</span>
-          <strong>把资料放进来</strong>
-          <p>粘贴一段研报、帖子、公告摘要或自己的研究笔记。</p>
+          <strong>收集分散资料</strong>
+          <p>把研报、帖子、公告摘要和个人笔记放进同一个资料库。</p>
         </div>
         <div>
           <span>02</span>
-          <strong>确认它说了什么</strong>
-          <p>检查系统识别出的 ticker、操作和来源，确认无误再入库。</p>
+          <strong>识别重复结构</strong>
+          <p>找出反复出现的 ticker、操作倾向、来源和时间线。</p>
         </div>
         <div>
           <span>03</span>
-          <strong>看提到最多的标的</strong>
-          <p>饼图会显示资料集中在哪些股票，避免只凭印象判断。</p>
+          <strong>揭示信息动态</strong>
+          <p>看到注意力如何集中、哪些标的被持续提到、观点如何变化。</p>
         </div>
         <div>
           <span>04</span>
-          <strong>点回原文依据</strong>
-          <p>每个标的都能回到对应资料，方便复查为什么会有这个判断。</p>
+          <strong>重新总结依据</strong>
+          <p>把分布、资料和问答重新连接起来，每个结论都能回到原文。</p>
         </div>
       </section>
 
       <section className="landing-example" id="landing-example">
         <div className="landing-section-copy">
           <span>示例数据</span>
-          <h2>你会看到哪些股票被反复提到。</h2>
-          <p>下面是公开 demo 的展示方式：先看分布，再点进某个 ticker，查看它对应的资料和原文依据。</p>
+          <h2>饼图只是结果，核心是把资料重新组织。</h2>
+          <p>公开 demo 展示的是一条完整路径：资料进入系统，被归类为标的、来源和倾向，再形成可以继续追问的资料库。</p>
         </div>
         <div className="landing-example-board">
           <div className="landing-example-card primary">
-            <span>分布图</span>
+            <span>汇聚后的结果</span>
             <strong>AMD · BTC · ETH</strong>
-            <p>哪些标的被资料反复提到，一眼就能看到。</p>
+            <p>哪些标的被反复提到，可以用分布图快速扫一眼。</p>
           </div>
           <div className="landing-example-card">
-            <span>资料来源</span>
+            <span>背后的资料</span>
             <strong>13F sector memo</strong>
             <p>每条记录保留来源和摘要，不只留下一个结论。</p>
           </div>
           <div className="landing-example-card">
-            <span>继续追问</span>
+            <span>重新总结</span>
             <strong>“目前怎么看 AMD？”</strong>
             <p>回答会引用资料库内容，方便你继续核对。</p>
           </div>
@@ -539,19 +544,77 @@ function LandingPage({ onStart }: { onStart: () => void }) {
 
       <section className="landing-final-cta">
         <span>从第一条资料开始</span>
-        <h2>先粘贴一段你刚看过的内容。</h2>
-        <p>确认后，它会进入资料库；资料多起来后，分布图会自动显示你的研究注意力集中在哪里。</p>
+        <h2>让资料先汇聚，再让结构浮现。</h2>
+        <p>进入工作台后，先录入资料并确认识别结果；资料多起来后，系统会自动呈现你的研究注意力和证据脉络。</p>
         <button onClick={onStart} type="button">开始使用</button>
       </section>
     </main>
   );
 }
 
+function LandingSignalFlow() {
+  return (
+    <div className="landing-signal-flow" aria-hidden="true">
+      <span className="flow-node node-a">研报</span>
+      <span className="flow-node node-b">帖子</span>
+      <span className="flow-node node-c">笔记</span>
+      <span className="flow-node node-d">公告</span>
+      <span className="flow-node node-core">结构</span>
+      <i className="flow-line line-a" />
+      <i className="flow-line line-b" />
+      <i className="flow-line line-c" />
+      <i className="flow-pulse pulse-a" />
+      <i className="flow-pulse pulse-b" />
+    </div>
+  );
+}
+
+const landingPreviewSignals = [
+  {
+    ticker: "AMD",
+    percent: "11.1%",
+    action: "加仓",
+    source: "13F sector memo",
+    summary: "半导体资料被反复提到，进入重点观察。",
+    color: "#c8d4df"
+  },
+  {
+    ticker: "BTC",
+    percent: "11.1%",
+    action: "持有",
+    source: "KOL macro thread",
+    summary: "多条资料把 BTC 作为风险资产核心持有。",
+    color: "#8fc6d8"
+  },
+  {
+    ticker: "ETH",
+    percent: "11.1%",
+    action: "持有",
+    source: "personal note",
+    summary: "链上与费用主题被整理为继续观察。",
+    color: "#d8b76d"
+  }
+];
+
 function LandingProductPreview() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeSignal = landingPreviewSignals[activeIndex];
+
+  useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return;
+
+    const timer = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % landingPreviewSignals.length);
+    }, 2400);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
   return (
     <div className="landing-product-preview" aria-label="产品示例预览">
       <div className="landing-preview-top">
-        <span>标的分布</span>
+        <span>信息汇聚结果</span>
         <strong>12 个标的 · 18 条资料</strong>
       </div>
       <div className="landing-preview-body">
@@ -559,33 +622,38 @@ function LandingProductPreview() {
           <svg viewBox="0 0 180 180" role="img">
             <title>示例 ticker 分布</title>
             <circle cx="90" cy="90" r="58" />
-            <path d={describeArc(90, 90, 58, 0, 46)} />
-            <path d={describeArc(90, 90, 58, 46, 92)} />
-            <path d={describeArc(90, 90, 58, 92, 138)} />
-            <path d={describeArc(90, 90, 58, 138, 202)} />
-            <path d={describeArc(90, 90, 58, 202, 270)} />
-            <path d={describeArc(90, 90, 58, 270, 360)} />
+            {[0, 1, 2, 3, 4, 5].map((index) => {
+              const startAngle = [0, 46, 92, 138, 202, 270][index];
+              const endAngle = [46, 92, 138, 202, 270, 360][index];
+              return (
+                <path
+                  className={index === activeIndex ? "active" : undefined}
+                  d={describeArc(90, 90, 58, startAngle, endAngle)}
+                  key={index}
+                />
+              );
+            })}
           </svg>
-          <div>
-            <strong>11.1%</strong>
-            <span>AMD</span>
+          <div key={activeSignal.ticker}>
+            <strong>{activeSignal.percent}</strong>
+            <span>{activeSignal.ticker}</span>
           </div>
         </div>
         <div className="landing-preview-stack">
-          <div>
+          <div className="active">
             <span>识别结果</span>
-            <strong>AMD · 加仓</strong>
-            <em>13F sector memo</em>
+            <strong>{activeSignal.ticker} · {activeSignal.action}</strong>
+            <em>{activeSignal.source}</em>
           </div>
           <div>
-            <span>原文依据</span>
-            <strong>原始资料可打开</strong>
+            <span>动态摘要</span>
+            <strong>{activeSignal.summary}</strong>
+            <em>updated with confirmed notes</em>
+          </div>
+          <div>
+            <span>可追溯依据</span>
+            <strong>打开资料库继续核对</strong>
             <em>source linked</em>
-          </div>
-          <div>
-            <span>继续追问</span>
-            <strong>问这个标的</strong>
-            <em>based on library</em>
           </div>
         </div>
       </div>
