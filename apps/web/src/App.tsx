@@ -399,6 +399,7 @@ export function App() {
   const externalAuth = isExternalAuthEnabled();
   const [authReady, setAuthReady] = useState(!externalAuth);
   const [session, setSession] = useState<{ token: string; email: string } | null>(null);
+  const [workspaceStarted, setWorkspaceStarted] = useState(false);
 
   useEffect(() => {
     if (!externalAuth) {
@@ -431,6 +432,7 @@ export function App() {
   }, [externalAuth]);
 
   if (!authReady) return <AuthLoadingView />;
+  if (!workspaceStarted) return <LandingPage onStart={() => setWorkspaceStarted(true)} />;
   if (externalAuth && !session) return <LoginView onSignedIn={(token, email) => {
     setAccessToken(token);
     setSession({ token, email });
@@ -445,6 +447,149 @@ export function App() {
         setSession(null);
       } : undefined}
     />
+  );
+}
+
+function LandingPage({ onStart }: { onStart: () => void }) {
+  function scrollToExample() {
+    document.getElementById("landing-example")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  return (
+    <main className="landing-shell">
+      <nav className="landing-nav" aria-label="官网导航">
+        <div className="landing-brand">
+          <span>持仓图谱</span>
+          <strong>Portfolio Intelligence</strong>
+        </div>
+        <div className="landing-nav-links">
+          <a href="#landing-features">功能</a>
+          <a href="#landing-example">示例</a>
+          <a href="https://github.com/Vesper-Gu/portfolio-intelligence-tracker" rel="noreferrer" target="_blank">GitHub</a>
+          <button onClick={onStart} type="button">开始使用</button>
+        </div>
+      </nav>
+
+      <section className="landing-hero">
+        <div className="landing-hero-copy">
+          <span className="landing-kicker">Research intelligence workspace</span>
+          <h1>把分散投研线索整理成可追溯的标的图谱。</h1>
+          <p>从研报、KOL 观点、个人笔记和链接中提取 ticker、动作与证据，生成分布分析、资料库和可追问的投研上下文。</p>
+          <div className="landing-actions">
+            <button className="landing-primary" onClick={onStart} type="button">开始使用</button>
+            <button className="landing-secondary" onClick={scrollToExample} type="button">查看示例</button>
+          </div>
+          <div className="landing-proof">
+            <span>Demo 数据</span>
+            <span>证据追溯</span>
+            <span>不提供投资建议</span>
+          </div>
+        </div>
+
+        <LandingProductPreview />
+      </section>
+
+      <section className="landing-feature-grid" id="landing-features">
+        <div>
+          <span>01</span>
+          <strong>导入资料</strong>
+          <p>粘贴文本或链接，把分散的投研片段放进确认队列。</p>
+        </div>
+        <div>
+          <span>02</span>
+          <strong>确认信号</strong>
+          <p>人工确认 ticker、动作、方向和来源，避免未经确认的信息污染资料库。</p>
+        </div>
+        <div>
+          <span>03</span>
+          <strong>生成分布</strong>
+          <p>按已确认资料统计 ticker 频次，查看注意力是否集中在少数标的。</p>
+        </div>
+        <div>
+          <span>04</span>
+          <strong>追溯证据</strong>
+          <p>从分布、资料库到问答引用，保留每条判断背后的原始依据。</p>
+        </div>
+      </section>
+
+      <section className="landing-example" id="landing-example">
+        <div className="landing-section-copy">
+          <span>Live demo shape</span>
+          <h2>示例不是装饰图，而是产品实际工作流。</h2>
+          <p>公开 demo 使用合成数据，展示从确认资料到 ticker 分布、证据引用和问答追踪的完整路径。</p>
+        </div>
+        <div className="landing-example-board">
+          <div className="landing-example-card primary">
+            <span>Ticker Distribution</span>
+            <strong>AMD · BTC · ETH</strong>
+            <p>将已确认资料汇总为 ticker 占比，快速判断研究注意力分布。</p>
+          </div>
+          <div className="landing-example-card">
+            <span>Evidence Queue</span>
+            <strong>13F sector memo</strong>
+            <p>每个动作都连接回来源、摘要和确认记录。</p>
+          </div>
+          <div className="landing-example-card">
+            <span>Ask Library</span>
+            <strong>“目前怎么看 AMD？”</strong>
+            <p>问答只基于资料库引用，避免脱离证据的泛泛回答。</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-final-cta">
+        <span>Start with one note</span>
+        <h2>从一段文本或一个链接开始。</h2>
+        <p>进入工作台后，先录入资料并确认候选信号；确认后的内容会自动生成分布图和证据链。</p>
+        <button onClick={onStart} type="button">开始使用</button>
+      </section>
+    </main>
+  );
+}
+
+function LandingProductPreview() {
+  return (
+    <div className="landing-product-preview" aria-label="产品示例预览">
+      <div className="landing-preview-top">
+        <span>Portfolio map</span>
+        <strong>12 tickers · 18 notes</strong>
+      </div>
+      <div className="landing-preview-body">
+        <div className="landing-preview-donut">
+          <svg viewBox="0 0 180 180" role="img">
+            <title>示例 ticker 分布</title>
+            <circle cx="90" cy="90" r="58" />
+            <path d={describeArc(90, 90, 58, 0, 46)} />
+            <path d={describeArc(90, 90, 58, 46, 92)} />
+            <path d={describeArc(90, 90, 58, 92, 138)} />
+            <path d={describeArc(90, 90, 58, 138, 202)} />
+            <path d={describeArc(90, 90, 58, 202, 270)} />
+            <path d={describeArc(90, 90, 58, 270, 360)} />
+          </svg>
+          <div>
+            <strong>11.1%</strong>
+            <span>AMD</span>
+          </div>
+        </div>
+        <div className="landing-preview-stack">
+          <div>
+            <span>Parsed signal</span>
+            <strong>AMD · 加仓</strong>
+            <em>13F sector memo</em>
+          </div>
+          <div>
+            <span>Evidence citation</span>
+            <strong>原始资料可打开</strong>
+            <em>source linked</em>
+          </div>
+          <div>
+            <span>RAG follow-up</span>
+            <strong>问这个标的</strong>
+            <em>grounded answer</em>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
