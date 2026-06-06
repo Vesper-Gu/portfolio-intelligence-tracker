@@ -74,6 +74,35 @@ const researchSourceOptions: Array<{ value: ResearchSourceType; label: string }>
 ];
 
 const signalActionOptions: SignalAction[] = ["观察", "新建仓", "加仓", "持有", "减仓", "风险"];
+const tickerPalette = [
+  "#78b8d6",
+  "#59d28d",
+  "#e3aa56",
+  "#f07d75",
+  "#9c8cff",
+  "#72d1c8",
+  "#d9c96f",
+  "#d28bd4",
+  "#8fb8ff",
+  "#db9966",
+  "#9ed66f",
+  "#c0a7ff"
+];
+
+const tickerBrandMap: Record<string, { name: string; mark: string; accent: string }> = {
+  AAPL: { name: "Apple", mark: "A", accent: "#b7c0c9" },
+  AMD: { name: "Advanced Micro Devices", mark: "AMD", accent: "#ef6f64" },
+  BTC: { name: "Bitcoin", mark: "₿", accent: "#f2a33a" },
+  ETH: { name: "Ethereum", mark: "Ξ", accent: "#8b9dff" },
+  GOOGL: { name: "Alphabet", mark: "G", accent: "#78b8d6" },
+  META: { name: "Meta Platforms", mark: "∞", accent: "#6ea8ff" },
+  MSFT: { name: "Microsoft", mark: "M", accent: "#75c97a" },
+  MSTR: { name: "MicroStrategy", mark: "M", accent: "#f2a33a" },
+  NET: { name: "Cloudflare", mark: "NET", accent: "#f08b4f" },
+  NVDA: { name: "NVIDIA", mark: "N", accent: "#8fd16a" },
+  SMH: { name: "VanEck Semiconductor ETF", mark: "SMH", accent: "#72d1c8" },
+  TSLA: { name: "Tesla", mark: "T", accent: "#f07d75" }
+};
 
 const emptyAnalysisDashboardPayload: DashboardPayload = {
   ...fallbackDashboardPayload,
@@ -103,6 +132,34 @@ function stanceTone(stance: PortfolioPosition["netStance"]): Tone {
   if (stance === "看多") return "positive";
   if (stance === "看空") return "negative";
   return "warning";
+}
+
+function tickerBrand(ticker: string) {
+  return tickerBrandMap[ticker.toUpperCase()] ?? {
+    name: `${ticker.toUpperCase()} 资料`,
+    mark: ticker.toUpperCase().slice(0, 3),
+    accent: "#78b8d6"
+  };
+}
+
+function polarToCartesian(cx: number, cy: number, radius: number, angleInDegrees: number) {
+  const angleInRadians = (angleInDegrees - 90) * Math.PI / 180;
+
+  return {
+    x: cx + radius * Math.cos(angleInRadians),
+    y: cy + radius * Math.sin(angleInRadians)
+  };
+}
+
+function describeArc(cx: number, cy: number, radius: number, startAngle: number, endAngle: number) {
+  const start = polarToCartesian(cx, cy, radius, endAngle);
+  const end = polarToCartesian(cx, cy, radius, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+
+  return [
+    "M", start.x, start.y,
+    "A", radius, radius, 0, largeArcFlag, 0, end.x, end.y
+  ].join(" ");
 }
 
 function formatShortDate(value: string) {
@@ -875,7 +932,6 @@ function DashboardView({
   recentEvents: HoldingEvent[];
 }) {
   const activePositions = portfolioPositions.slice(0, 6);
-  const { heatmapColumns, heatmapRows } = dashboardPayload;
   const latestEvents = [...recentEvents].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
   const visiblePendingItems = pendingIngestItems.slice(0, 5);
   const confirmedHoldingCount = portfolioPositions.reduce((sum, position) => sum + position.holdingsCount, 0);
@@ -906,7 +962,7 @@ function DashboardView({
         <section className="demo-path" aria-label="演示路径">
           <span>3 分钟演示路径</span>
           <ol>
-            <li>看总览中的标的聚合和来源矩阵</li>
+            <li>看总览中的标的聚合和 ticker 频次分布</li>
             <li>进入录入队列确认一条待处理资料</li>
             <li>打开标的资料库查看证据链</li>
             <li>问资料库连续追问依据和风险</li>
@@ -998,34 +1054,180 @@ function DashboardView({
         )}
         </section>
 
-        <section className="panel heatmap-panel">
-        <div className="panel-header">
-          <span>来源 × Ticker 倾向矩阵</span>
-          <strong>已确认资料</strong>
-        </div>
-        {heatmapColumns.length === 0 ? (
-          <p className="empty-state">加入并确认带来源主体的资料后，这里将展示跨来源持仓倾向。</p>
-        ) : (
-          <>
-            <div className="heatmap" style={{ gridTemplateColumns: `112px repeat(${heatmapColumns.length}, 54px)` }}>
-              <div className="heatmap-corner" />
-              {heatmapColumns.map((column) => (
-                <div className="heatmap-label column" key={column}>{column}</div>
-              ))}
-              {heatmapRows.map((row) => (
-                <div className="heatmap-row" key={row.label}>
-                  <div className="heatmap-label row" title={row.label}>{row.label}</div>
-                  {row.cells.map((cell, index) => (
-                    <div className={`heat-cell ${toneClass[cell]}`} key={`${row.label}-${index}`} />
-                  ))}
-                </div>
+        <TickerFrequencyDonutPanel onOpenTicker={onOpenTicker} positions={portfolioPositions} />
+      </div>
+    </div>
+  );
+}
+
+interface TickerFrequencySlice {
+  ticker: string;
+  label: string;
+  value: number;
+  percent: number;
+  color: string;
+  position?: PortfolioPosition;
+  isOther: boolean;
+}
+
+function TickerFrequencyDonutPanel({
+  onOpenTicker,
+  positions
+}: {
+  onOpenTicker: (ticker: string) => void;
+  positions: PortfolioPosition[];
+}) {
+  const activePositions = positions
+    .filter((position) => position.status === "活跃" && position.holdingsCount > 0)
+    .sort((a, b) => b.holdingsCount - a.holdingsCount || a.ticker.localeCompare(b.ticker));
+  const totalHoldings = activePositions.reduce((sum, position) => sum + position.holdingsCount, 0);
+  const visiblePositions = activePositions.slice(0, 11);
+  const otherPositions = activePositions.slice(11);
+  const slices: TickerFrequencySlice[] = totalHoldings === 0 ? [] : [
+    ...visiblePositions.map((position, index) => ({
+      ticker: position.ticker,
+      label: position.ticker,
+      value: position.holdingsCount,
+      percent: position.holdingsCount / totalHoldings,
+      color: tickerBrand(position.ticker).accent || tickerPalette[index % tickerPalette.length],
+      position,
+      isOther: false
+    })),
+    ...(otherPositions.length ? [{
+      ticker: "OTHER",
+      label: "其他",
+      value: otherPositions.reduce((sum, position) => sum + position.holdingsCount, 0),
+      percent: otherPositions.reduce((sum, position) => sum + position.holdingsCount, 0) / totalHoldings,
+      color: "#77817f",
+      isOther: true
+    }] : [])
+  ];
+  const [selectedTicker, setSelectedTicker] = useState<string | null>(slices[0]?.ticker ?? null);
+  const selectedSlice = slices.find((slice) => slice.ticker === selectedTicker) ?? slices[0];
+  let cursorAngle = 0;
+
+  useEffect(() => {
+    if (slices.length === 0) {
+      setSelectedTicker(null);
+      return;
+    }
+
+    if (!selectedTicker || !slices.some((slice) => slice.ticker === selectedTicker)) {
+      setSelectedTicker(slices[0].ticker);
+    }
+  }, [selectedTicker, slices]);
+
+  return (
+    <section className="panel ticker-frequency-panel">
+      <div className="panel-header">
+        <span>Ticker 频次分布</span>
+        <strong>{totalHoldings ? `${activePositions.length} 个标的 · ${totalHoldings} 条资料` : "等待资料"}</strong>
+      </div>
+      {slices.length === 0 || !selectedSlice ? (
+        <p className="empty-state">确认资料后，这里会按 ticker 出现频次展示分布。</p>
+      ) : (
+        <div className="ticker-frequency-body">
+          <div className="donut-stage" aria-label="资料提及占比">
+            <svg className="ticker-donut" role="img" viewBox="0 0 260 260">
+              <title>按 ticker 出现频次统计的资料占比</title>
+              <circle className="donut-track" cx="130" cy="130" r="92" />
+              {slices.map((slice) => {
+                const startAngle = cursorAngle;
+                const endAngle = cursorAngle + slice.percent * 360;
+                cursorAngle = endAngle;
+                const isSelected = selectedSlice.ticker === slice.ticker;
+                const midAngle = (startAngle + endAngle) / 2;
+                const offset = isSelected ? 7 : 0;
+                const offsetPoint = polarToCartesian(0, 0, offset, midAngle);
+
+                if (slice.percent >= 0.999) {
+                  return (
+                    <circle
+                      aria-label={`${slice.label}，${slice.value} 条资料，占比 100%`}
+                      className={isSelected ? "donut-slice selected" : "donut-slice"}
+                      cx={130 + offsetPoint.x}
+                      cy={130 + offsetPoint.y}
+                      key={slice.ticker}
+                      onClick={() => setSelectedTicker(slice.ticker)}
+                      onDoubleClick={() => {
+                        if (!slice.isOther && slice.position) onOpenTicker(slice.position.ticker);
+                      }}
+                      r="92"
+                      role="button"
+                      stroke={slice.color}
+                      tabIndex={0}
+                    />
+                  );
+                }
+
+                return (
+                  <path
+                    aria-label={`${slice.label}，${slice.value} 条资料，占比 ${(slice.percent * 100).toFixed(1)}%`}
+                    className={isSelected ? "donut-slice selected" : "donut-slice"}
+                    d={describeArc(130 + offsetPoint.x, 130 + offsetPoint.y, 92, startAngle, endAngle)}
+                    key={slice.ticker}
+                    onClick={() => setSelectedTicker(slice.ticker)}
+                    onDoubleClick={() => {
+                      if (!slice.isOther && slice.position) onOpenTicker(slice.position.ticker);
+                    }}
+                    role="button"
+                    stroke={slice.color}
+                    tabIndex={0}
+                  />
+                );
+              })}
+              <circle className="donut-hole" cx="130" cy="130" r="58" />
+            </svg>
+            <div className="donut-center">
+              <span>资料占比</span>
+              <strong>{(selectedSlice.percent * 100).toFixed(1)}%</strong>
+              <em>{selectedSlice.label}</em>
+            </div>
+          </div>
+
+          <div className="ticker-frequency-detail">
+            <TickerBrandBadge slice={selectedSlice} />
+            <div className="ticker-frequency-copy">
+              <span>{selectedSlice.isOther ? "汇总分组" : tickerBrand(selectedSlice.ticker).name}</span>
+              <strong>{selectedSlice.label}</strong>
+              <p>
+                {selectedSlice.value} 条已确认资料，占全部确认资料 {(selectedSlice.percent * 100).toFixed(1)}%。
+                {selectedSlice.isOther ? " 该分组用于收纳小份额 ticker，不支持双击跳转。" : " 双击扇区可打开对应 ticker 资料库。"}
+              </p>
+            </div>
+            <div className="ticker-frequency-stats">
+              <Field label="出现次数" value={`${selectedSlice.value} 条`} tone="positive" />
+              <Field label="最新动作" value={selectedSlice.position?.latestAction ?? "汇总"} tone={selectedSlice.position ? actionTone(selectedSlice.position.latestAction) : "neutral"} />
+              <Field label="聚合方向" value={selectedSlice.position?.netStance ?? "多标的"} tone={selectedSlice.position ? stanceTone(selectedSlice.position.netStance) : "neutral"} />
+              <Field label="来源数量" value={selectedSlice.position ? `${selectedSlice.position.sourceCount} 个` : `${otherPositions.length} 个标的`} tone="neutral" />
+            </div>
+            <div className="ticker-frequency-legend">
+              {slices.map((slice) => (
+                <button
+                  className={selectedSlice.ticker === slice.ticker ? "active" : undefined}
+                  key={slice.ticker}
+                  onClick={() => setSelectedTicker(slice.ticker)}
+                  type="button"
+                >
+                  <i style={{ background: slice.color }} />
+                  <span>{slice.label}</span>
+                  <strong>{slice.value}</strong>
+                </button>
               ))}
             </div>
-            <div className="legend">绿=加仓 / 新建仓 · 黄=持有 / 观察 · 红=减仓 / 风险 · 深灰=无记录</div>
-          </>
-        )}
-        </section>
-      </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TickerBrandBadge({ slice }: { slice: TickerFrequencySlice }) {
+  const brand = slice.isOther ? { name: "其他", mark: "•••", accent: slice.color } : tickerBrand(slice.ticker);
+
+  return (
+    <div className="ticker-brand-badge" style={{ borderColor: brand.accent, color: brand.accent }}>
+      <span>{brand.mark}</span>
     </div>
   );
 }
