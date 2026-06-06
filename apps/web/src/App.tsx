@@ -49,6 +49,7 @@ import { setAccessToken } from "./api";
 
 const navItems: Array<{ key: ViewKey; label: string }> = [
   { key: "dashboard", label: "总览" },
+  { key: "distribution", label: "分布" },
   { key: "ingest", label: "录入" },
   { key: "library", label: "标的资料库" },
   { key: "rag", label: "问资料库" },
@@ -75,18 +76,16 @@ const researchSourceOptions: Array<{ value: ResearchSourceType; label: string }>
 
 const signalActionOptions: SignalAction[] = ["观察", "新建仓", "加仓", "持有", "减仓", "风险"];
 const tickerPalette = [
-  "#78b8d6",
-  "#59d28d",
-  "#e3aa56",
-  "#f07d75",
-  "#9c8cff",
-  "#72d1c8",
-  "#d9c96f",
-  "#d28bd4",
-  "#8fb8ff",
-  "#db9966",
-  "#9ed66f",
-  "#c0a7ff"
+  "#7aa7c7",
+  "#68b889",
+  "#d4a45f",
+  "#c97872",
+  "#8d86c9",
+  "#65bdb4",
+  "#bfb56a",
+  "#b983b6",
+  "#7f9fd2",
+  "#c58d62"
 ];
 
 const tickerBrandMap: Record<string, { name: string; mark: string; accent: string }> = {
@@ -481,7 +480,7 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
   }
 
   useEffect(() => {
-    if (view !== "dashboard" && view !== "library") return;
+    if (view !== "dashboard" && view !== "distribution" && view !== "library") return;
 
     const controller = new AbortController();
 
@@ -539,6 +538,7 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
   }, []);
 
   const title = useMemo(() => {
+    if (view === "distribution") return "分布分析 / Ticker Distribution";
     if (view === "ingest") return "录入 / 资料确认队列";
     if (view === "library") return "标的资料库 / Ticker Library";
     if (view === "rag") return "问投研资料 / Evidence-grounded Answers";
@@ -593,21 +593,33 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
           <h1>{title}</h1>
           {view === "dashboard" && (
             <DashboardView
-              dashboardPayload={dashboardPayload}
               dataStatus={dataStatus}
               onOpenIngest={(ingestId) => {
                 setFocusedIngestId(ingestId ?? null);
                 setView("ingest");
               }}
               onOpenLibrary={() => setView("library")}
-              onOpenTicker={(ticker) => {
-                setLibraryFocusTicker(ticker);
-                setView("library");
-              }}
+              onOpenDistribution={() => setView("distribution")}
               onOpenEvidence={setEvidenceIngestId}
               pendingIngestItems={pendingIngestItems}
               portfolioPositions={portfolioPositions}
               recentEvents={recentEvents}
+            />
+          )}
+          {view === "distribution" && (
+            <TickerDistributionView
+              dataStatus={dataStatus}
+              onOpenIngest={() => {
+                setFocusedIngestId(null);
+                setView("ingest");
+              }}
+              onOpenLibrary={() => setView("library")}
+              onOpenRag={openRagWithQuery}
+              onOpenTicker={(ticker) => {
+                setLibraryFocusTicker(ticker);
+                setView("library");
+              }}
+              positions={portfolioPositions}
             />
           )}
           {view === "ingest" && (
@@ -911,36 +923,34 @@ function RagView({
 }
 
 function DashboardView({
-  dashboardPayload,
   dataStatus,
   onOpenIngest,
+  onOpenDistribution,
   onOpenLibrary,
-  onOpenTicker,
   onOpenEvidence,
   pendingIngestItems,
   portfolioPositions,
   recentEvents
 }: {
-  dashboardPayload: DashboardPayload;
   dataStatus: "api" | "error" | "loading";
   onOpenIngest: (ingestId?: string) => void;
+  onOpenDistribution: () => void;
   onOpenLibrary: () => void;
-  onOpenTicker: (ticker: string) => void;
   onOpenEvidence: (ingestId: string) => void;
   pendingIngestItems: IngestItem[];
   portfolioPositions: PortfolioPosition[];
   recentEvents: HoldingEvent[];
 }) {
-  const activePositions = portfolioPositions.slice(0, 6);
   const latestEvents = [...recentEvents].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
   const visiblePendingItems = pendingIngestItems.slice(0, 5);
   const confirmedHoldingCount = portfolioPositions.reduce((sum, position) => sum + position.holdingsCount, 0);
   const sourceCount = new Set(portfolioPositions.flatMap((position) => position.sources)).size;
   const latestEvent = latestEvents[0];
+  const topTicker = [...portfolioPositions].sort((a, b) => b.holdingsCount - a.holdingsCount)[0];
 
   return (
     <div className="dashboard-stack">
-      <section className="dashboard-hero">
+      <section className="dashboard-hero dashboard-hero-compact">
         <div className="dashboard-hero-copy">
           <span>{publicDemoMode ? "Demo Research Workspace" : "Research Workspace"}</span>
           <h2>集中管理投研资料。</h2>
@@ -958,61 +968,7 @@ function DashboardView({
         </div>
       </section>
 
-      {publicDemoMode && (
-        <section className="demo-path" aria-label="演示路径">
-          <span>3 分钟演示路径</span>
-          <ol>
-            <li>看总览中的标的聚合和 ticker 频次分布</li>
-            <li>进入录入队列确认一条待处理资料</li>
-            <li>打开标的资料库查看证据链</li>
-            <li>问资料库连续追问依据和风险</li>
-          </ol>
-        </section>
-      )}
-
-      <div className="dashboard-grid">
-        <section className="panel positions-panel dashboard-primary-panel">
-        <div className="panel-header">
-          <span>当前关注标的</span>
-          <strong>{dataStatus === "api" ? "API 实时" : dataStatus === "loading" ? "加载中" : "连接失败"}</strong>
-        </div>
-        {activePositions.length === 0 ? (
-          <p className="empty-state">{dataStatus === "error" ? "无法读取资料库，请检查服务状态后重试。" : "暂无可聚合的已确认 holdings。"}</p>
-        ) : (
-          <table className="terminal-table positions-table">
-            <thead>
-              <tr>
-                <th>Ticker</th>
-                <th>Stance</th>
-                <th>Holdings</th>
-                <th>Sources</th>
-                <th>Latest</th>
-                <th>Updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activePositions.map((position) => (
-                <tr key={position.ticker}>
-                  <td className="ticker-cell">
-                    <button onClick={() => onOpenTicker(position.ticker)} type="button">{position.ticker}</button>
-                  </td>
-                  <td className={position.netStance === "看多" ? "tone-positive" : position.netStance === "看空" ? "tone-negative" : "tone-neutral"}>
-                    {position.netStance}
-                  </td>
-                  <td>{position.holdingsCount}</td>
-                  <td title={position.sources.join(" / ")}>{position.sourceCount}</td>
-                  <td className={toneClass[actionTone(position.latestAction)]}>{position.latestAction}</td>
-                  <td>{formatShortDate(position.lastUpdated)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        <button className="panel-link-button positions-library-link" onClick={onOpenLibrary} type="button">
-          查看标的资料库
-        </button>
-        </section>
-
+      <div className="dashboard-minimal-grid">
         <section className="panel dashboard-side-panel">
         <div className="panel-header">
           <span>待处理资料</span>
@@ -1054,7 +1010,29 @@ function DashboardView({
         )}
         </section>
 
-        <TickerFrequencyDonutPanel onOpenTicker={onOpenTicker} positions={portfolioPositions} />
+        <section className="panel dashboard-actions-panel">
+          <div className="panel-header">
+            <span>下一步</span>
+            <strong>{dataStatus === "api" ? "API 实时" : dataStatus === "loading" ? "加载中" : "连接失败"}</strong>
+          </div>
+          <div className="dashboard-action-list">
+            <button onClick={onOpenDistribution} type="button">
+              <span>看分布</span>
+              <strong>{topTicker ? `${topTicker.ticker} 最高频` : "等待资料"}</strong>
+              <em>查看 ticker 频次、占比和集中度</em>
+            </button>
+            <button onClick={onOpenLibrary} type="button">
+              <span>查资料库</span>
+              <strong>{portfolioPositions.length ? `${portfolioPositions.length} 个标的` : "暂无标的"}</strong>
+              <em>打开聚合记录和原始证据</em>
+            </button>
+            <button onClick={() => onOpenIngest()} type="button">
+              <span>处理队列</span>
+              <strong>{pendingIngestItems.length ? `${pendingIngestItems.length} 条待处理` : "队列清空"}</strong>
+              <em>录入、解析并确认新资料</em>
+            </button>
+          </div>
+        </section>
       </div>
     </div>
   );
@@ -1070,10 +1048,18 @@ interface TickerFrequencySlice {
   isOther: boolean;
 }
 
-function TickerFrequencyDonutPanel({
+function TickerDistributionView({
+  dataStatus,
+  onOpenIngest,
+  onOpenLibrary,
+  onOpenRag,
   onOpenTicker,
   positions
 }: {
+  dataStatus: "api" | "error" | "loading";
+  onOpenIngest: () => void;
+  onOpenLibrary: () => void;
+  onOpenRag: (query: string) => void;
   onOpenTicker: (ticker: string) => void;
   positions: PortfolioPosition[];
 }) {
@@ -1081,29 +1067,31 @@ function TickerFrequencyDonutPanel({
     .filter((position) => position.status === "活跃" && position.holdingsCount > 0)
     .sort((a, b) => b.holdingsCount - a.holdingsCount || a.ticker.localeCompare(b.ticker));
   const totalHoldings = activePositions.reduce((sum, position) => sum + position.holdingsCount, 0);
-  const visiblePositions = activePositions.slice(0, 11);
-  const otherPositions = activePositions.slice(11);
+  const visiblePositions = activePositions.slice(0, 10);
+  const otherPositions = activePositions.slice(10);
+  const otherValue = otherPositions.reduce((sum, position) => sum + position.holdingsCount, 0);
   const slices: TickerFrequencySlice[] = totalHoldings === 0 ? [] : [
     ...visiblePositions.map((position, index) => ({
       ticker: position.ticker,
       label: position.ticker,
       value: position.holdingsCount,
       percent: position.holdingsCount / totalHoldings,
-      color: tickerBrand(position.ticker).accent || tickerPalette[index % tickerPalette.length],
+      color: tickerPalette[index % tickerPalette.length],
       position,
       isOther: false
     })),
     ...(otherPositions.length ? [{
       ticker: "OTHER",
       label: "其他",
-      value: otherPositions.reduce((sum, position) => sum + position.holdingsCount, 0),
-      percent: otherPositions.reduce((sum, position) => sum + position.holdingsCount, 0) / totalHoldings,
+      value: otherValue,
+      percent: otherValue / totalHoldings,
       color: "#77817f",
       isOther: true
     }] : [])
   ];
   const [selectedTicker, setSelectedTicker] = useState<string | null>(slices[0]?.ticker ?? null);
   const selectedSlice = slices.find((slice) => slice.ticker === selectedTicker) ?? slices[0];
+  const selectedBrand = selectedSlice && !selectedSlice.isOther ? tickerBrand(selectedSlice.ticker) : undefined;
   let cursorAngle = 0;
 
   useEffect(() => {
@@ -1118,107 +1106,145 @@ function TickerFrequencyDonutPanel({
   }, [selectedTicker, slices]);
 
   return (
-    <section className="panel ticker-frequency-panel">
-      <div className="panel-header">
-        <span>Ticker 频次分布</span>
-        <strong>{totalHoldings ? `${activePositions.length} 个标的 · ${totalHoldings} 条资料` : "等待资料"}</strong>
-      </div>
+    <div className="distribution-page">
+      <section className="distribution-intro">
+        <div>
+          <span>{publicDemoMode ? "Demo Distribution" : "Portfolio Distribution"}</span>
+          <h2>看清资料集中在哪些标的。</h2>
+          <p>按已确认资料出现频次计算占比，帮助判断研究注意力是否过度集中、哪些 ticker 值得继续追踪。</p>
+        </div>
+        <div className="distribution-summary">
+          <MetricCard label="标的数量" value={`${activePositions.length}`} detail={dataStatus === "api" ? "已确认资料" : dataStatus === "loading" ? "加载中" : "连接失败"} tone={activePositions.length ? "positive" : "neutral"} />
+          <MetricCard label="资料总数" value={`${totalHoldings}`} detail="用于占比计算" tone="neutral" />
+          <MetricCard label="最高频" value={slices[0]?.label ?? "暂无"} detail={slices[0] ? `${slices[0].value} 条资料` : "等待确认"} tone={slices[0] ? "positive" : "neutral"} />
+        </div>
+      </section>
+
       {slices.length === 0 || !selectedSlice ? (
-        <p className="empty-state">确认资料后，这里会按 ticker 出现频次展示分布。</p>
+        <section className="panel distribution-empty-panel">
+          <div className="panel-header">
+            <span>Ticker 频次分布</span>
+            <strong>等待资料</strong>
+          </div>
+          <p className="empty-state">确认资料后，这里会按 ticker 出现频次展示分布。</p>
+          <button className="panel-link-button" onClick={onOpenIngest} type="button">去录入资料</button>
+        </section>
       ) : (
-        <div className="ticker-frequency-body">
-          <div className="donut-stage" aria-label="资料提及占比">
-            <svg className="ticker-donut" role="img" viewBox="0 0 260 260">
-              <title>按 ticker 出现频次统计的资料占比</title>
-              <circle className="donut-track" cx="130" cy="130" r="92" />
-              {slices.map((slice) => {
-                const startAngle = cursorAngle;
-                const endAngle = cursorAngle + slice.percent * 360;
-                cursorAngle = endAngle;
-                const isSelected = selectedSlice.ticker === slice.ticker;
-                const midAngle = (startAngle + endAngle) / 2;
-                const offset = isSelected ? 7 : 0;
-                const offsetPoint = polarToCartesian(0, 0, offset, midAngle);
+        <section className="distribution-layout">
+          <div className="panel distribution-chart-panel">
+            <div className="panel-header">
+              <span>Ticker 频次分布</span>
+              <strong>{`${activePositions.length} 个标的 · ${totalHoldings} 条资料`}</strong>
+            </div>
+            <div className="distribution-chart-body">
+              <div className="distribution-donut-stage" aria-label="资料提及占比">
+                <svg className="distribution-donut" role="img" viewBox="0 0 360 360">
+                  <title>按 ticker 出现频次统计的资料占比</title>
+                  <circle className="distribution-donut-track" cx="180" cy="180" r="128" />
+                  {slices.map((slice) => {
+                    const startAngle = cursorAngle;
+                    const endAngle = cursorAngle + slice.percent * 360;
+                    cursorAngle = endAngle;
+                    const isSelected = selectedSlice.ticker === slice.ticker;
+                    const midAngle = (startAngle + endAngle) / 2;
+                    const offset = isSelected ? 9 : 0;
+                    const offsetPoint = polarToCartesian(0, 0, offset, midAngle);
 
-                if (slice.percent >= 0.999) {
-                  return (
-                    <circle
-                      aria-label={`${slice.label}，${slice.value} 条资料，占比 100%`}
-                      className={isSelected ? "donut-slice selected" : "donut-slice"}
-                      cx={130 + offsetPoint.x}
-                      cy={130 + offsetPoint.y}
-                      key={slice.ticker}
-                      onClick={() => setSelectedTicker(slice.ticker)}
-                      onDoubleClick={() => {
-                        if (!slice.isOther && slice.position) onOpenTicker(slice.position.ticker);
-                      }}
-                      r="92"
-                      role="button"
-                      stroke={slice.color}
-                      tabIndex={0}
-                    />
-                  );
-                }
+                    if (slice.percent >= 0.999) {
+                      return (
+                        <circle
+                          aria-label={`${slice.label}，${slice.value} 条资料，占比 100%`}
+                          className={isSelected ? "distribution-slice selected" : "distribution-slice"}
+                          cx={180 + offsetPoint.x}
+                          cy={180 + offsetPoint.y}
+                          key={slice.ticker}
+                          onClick={() => setSelectedTicker(slice.ticker)}
+                          onDoubleClick={() => {
+                            if (!slice.isOther && slice.position) onOpenTicker(slice.position.ticker);
+                          }}
+                          r="128"
+                          role="button"
+                          stroke={slice.color}
+                          tabIndex={0}
+                        />
+                      );
+                    }
 
-                return (
-                  <path
-                    aria-label={`${slice.label}，${slice.value} 条资料，占比 ${(slice.percent * 100).toFixed(1)}%`}
-                    className={isSelected ? "donut-slice selected" : "donut-slice"}
-                    d={describeArc(130 + offsetPoint.x, 130 + offsetPoint.y, 92, startAngle, endAngle)}
-                    key={slice.ticker}
-                    onClick={() => setSelectedTicker(slice.ticker)}
-                    onDoubleClick={() => {
-                      if (!slice.isOther && slice.position) onOpenTicker(slice.position.ticker);
-                    }}
-                    role="button"
-                    stroke={slice.color}
-                    tabIndex={0}
-                  />
-                );
-              })}
-              <circle className="donut-hole" cx="130" cy="130" r="58" />
-            </svg>
-            <div className="donut-center">
-              <span>资料占比</span>
-              <strong>{(selectedSlice.percent * 100).toFixed(1)}%</strong>
-              <em>{selectedSlice.label}</em>
+                    return (
+                      <path
+                        aria-label={`${slice.label}，${slice.value} 条资料，占比 ${(slice.percent * 100).toFixed(1)}%`}
+                        className={isSelected ? "distribution-slice selected" : "distribution-slice"}
+                        d={describeArc(180 + offsetPoint.x, 180 + offsetPoint.y, 128, startAngle, endAngle)}
+                        key={slice.ticker}
+                        onClick={() => setSelectedTicker(slice.ticker)}
+                        onDoubleClick={() => {
+                          if (!slice.isOther && slice.position) onOpenTicker(slice.position.ticker);
+                        }}
+                        role="button"
+                        stroke={slice.color}
+                        tabIndex={0}
+                      />
+                    );
+                  })}
+                  <circle className="distribution-donut-hole" cx="180" cy="180" r="82" />
+                </svg>
+                <div className="distribution-donut-center">
+                  <span>当前占比</span>
+                  <strong>{(selectedSlice.percent * 100).toFixed(1)}%</strong>
+                  <em>{selectedSlice.label}</em>
+                </div>
+              </div>
+
+              <div className="distribution-selected-card">
+                <TickerBrandBadge slice={selectedSlice} />
+                <div className="distribution-selected-copy">
+                  <span>{selectedSlice.isOther ? "汇总分组" : selectedBrand?.name}</span>
+                  <strong>{selectedSlice.label}</strong>
+                  <p>
+                    {selectedSlice.value} 条已确认资料，占全部确认资料 {(selectedSlice.percent * 100).toFixed(1)}%。
+                    {selectedSlice.isOther ? "该分组只用于汇总小份额标的。" : "可以打开资料库查看对应证据链。"}
+                  </p>
+                </div>
+                <div className="distribution-selected-meta">
+                  <span>最新动作 <strong className={selectedSlice.position ? toneClass[actionTone(selectedSlice.position.latestAction)] : "tone-neutral"}>{selectedSlice.position?.latestAction ?? "汇总"}</strong></span>
+                  <span>聚合方向 <strong className={selectedSlice.position ? toneClass[stanceTone(selectedSlice.position.netStance)] : "tone-neutral"}>{selectedSlice.position?.netStance ?? "多标的"}</strong></span>
+                  <span>来源数量 <strong>{selectedSlice.position ? `${selectedSlice.position.sourceCount} 个` : `${otherPositions.length} 个标的`}</strong></span>
+                  <span>最后更新 <strong>{selectedSlice.position?.lastUpdated ? formatShortDate(selectedSlice.position.lastUpdated) : "汇总"}</strong></span>
+                </div>
+                <div className="distribution-selected-actions">
+                  <button disabled={selectedSlice.isOther || !selectedSlice.position} onClick={() => selectedSlice.position && onOpenTicker(selectedSlice.position.ticker)} type="button">打开资料库</button>
+                  <button disabled={selectedSlice.isOther || !selectedSlice.position} onClick={() => selectedSlice.position && onOpenRag(`目前整理的资料怎么看 ${selectedSlice.position.ticker}？`)} type="button">问这个标的</button>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="ticker-frequency-detail">
-            <TickerBrandBadge slice={selectedSlice} />
-            <div className="ticker-frequency-copy">
-              <span>{selectedSlice.isOther ? "汇总分组" : tickerBrand(selectedSlice.ticker).name}</span>
-              <strong>{selectedSlice.label}</strong>
-              <p>
-                {selectedSlice.value} 条已确认资料，占全部确认资料 {(selectedSlice.percent * 100).toFixed(1)}%。
-                {selectedSlice.isOther ? " 该分组用于收纳小份额 ticker，不支持双击跳转。" : " 双击扇区可打开对应 ticker 资料库。"}
-              </p>
+          <aside className="panel distribution-rank-panel">
+            <div className="panel-header">
+              <span>Ticker 排行</span>
+              <strong>按资料频次</strong>
             </div>
-            <div className="ticker-frequency-stats">
-              <Field label="出现次数" value={`${selectedSlice.value} 条`} tone="positive" />
-              <Field label="最新动作" value={selectedSlice.position?.latestAction ?? "汇总"} tone={selectedSlice.position ? actionTone(selectedSlice.position.latestAction) : "neutral"} />
-              <Field label="聚合方向" value={selectedSlice.position?.netStance ?? "多标的"} tone={selectedSlice.position ? stanceTone(selectedSlice.position.netStance) : "neutral"} />
-              <Field label="来源数量" value={selectedSlice.position ? `${selectedSlice.position.sourceCount} 个` : `${otherPositions.length} 个标的`} tone="neutral" />
-            </div>
-            <div className="ticker-frequency-legend">
-              {slices.map((slice) => (
+            <div className="distribution-rank-list">
+              {slices.map((slice, index) => (
                 <button
                   className={selectedSlice.ticker === slice.ticker ? "active" : undefined}
                   key={slice.ticker}
                   onClick={() => setSelectedTicker(slice.ticker)}
                   type="button"
                 >
+                  <em>{String(index + 1).padStart(2, "0")}</em>
                   <i style={{ background: slice.color }} />
                   <span>{slice.label}</span>
-                  <strong>{slice.value}</strong>
+                  <strong>{slice.value} 条</strong>
+                  <b>{(slice.percent * 100).toFixed(1)}%</b>
                 </button>
               ))}
             </div>
-          </div>
-        </div>
+            <button className="panel-link-button distribution-library-link" onClick={onOpenLibrary} type="button">查看完整资料库</button>
+          </aside>
+        </section>
       )}
-    </section>
+    </div>
   );
 }
 

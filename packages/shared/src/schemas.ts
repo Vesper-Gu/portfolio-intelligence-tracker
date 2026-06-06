@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const toneSchema = z.enum(["positive", "negative", "warning", "neutral", "empty"]);
 export const signalActionSchema = z.enum(["加仓", "持有", "减仓", "新建仓", "风险", "观察"]);
-export const viewKeySchema = z.enum(["dashboard", "ingest", "library", "rag", "settings", "sources"]);
+export const viewKeySchema = z.enum(["dashboard", "distribution", "ingest", "library", "rag", "settings", "sources"]);
 export const ingestStatusSchema = z.enum(["可接受", "需人工确认", "待复核", "已接受", "已驳回", "已修改"]);
 export const ingestKindSchema = z.enum(["link", "text", "screenshot", "filing"]);
 export const researchSourceTypeSchema = z.enum(["kol_post", "fund_filing", "research_article", "personal_note", "screenshot", "other"]);
