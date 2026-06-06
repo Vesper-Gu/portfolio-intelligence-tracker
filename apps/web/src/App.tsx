@@ -471,15 +471,16 @@ function LandingPage({ onStart }: { onStart: () => void }) {
       </nav>
 
       <section className="landing-hero">
+        <LandingMarketBackdrop />
         <LandingSignalFlow />
         <div className="landing-hero-copy">
-          <span className="landing-kicker">Information becomes structure</span>
+          <span className="landing-kicker">Research attention map</span>
           <h1>
-            汇聚分散资料，
+            整理投资资料，
             <br />
-            看见信息背后的变化。
+            提取标的主线。
           </h1>
-          <p>把研报、帖子、公告和笔记放进来。系统会识别反复出现的标的、来源和操作倾向，再重新整理成可以追溯的研究资料库。</p>
+          <p>粘贴资料，提取标的、观点和来源。</p>
           <div className="landing-actions">
             <button className="landing-primary" onClick={onStart} type="button">开始使用</button>
             <button className="landing-secondary" onClick={scrollToExample} type="button">查看示例</button>
@@ -497,58 +498,94 @@ function LandingPage({ onStart }: { onStart: () => void }) {
       <section className="landing-feature-grid" id="landing-features">
         <div>
           <span>01</span>
-          <strong>收集分散资料</strong>
-          <p>把研报、帖子、公告摘要和个人笔记放进同一个资料库。</p>
+          <strong>放进资料</strong>
+          <p>研报、帖子、公告和笔记，统一放进来。</p>
         </div>
         <div>
           <span>02</span>
-          <strong>识别重复结构</strong>
-          <p>找出反复出现的 ticker、操作倾向、来源和时间线。</p>
+          <strong>识别标的</strong>
+          <p>确认系统识别出的标的代码、观点和来源。</p>
         </div>
         <div>
           <span>03</span>
-          <strong>揭示信息动态</strong>
-          <p>看到注意力如何集中、哪些标的被持续提到、观点如何变化。</p>
+          <strong>形成主线</strong>
+          <p>看见注意力集中在哪些标的和主题上。</p>
         </div>
         <div>
           <span>04</span>
-          <strong>重新总结依据</strong>
-          <p>把分布、资料和问答重新连接起来，每个结论都能回到原文。</p>
+          <strong>回到依据</strong>
+          <p>从主线跳回原文，复查每个判断从何而来。</p>
         </div>
       </section>
 
       <section className="landing-example" id="landing-example">
         <div className="landing-section-copy">
           <span>示例数据</span>
-          <h2>饼图只是结果，核心是把资料重新组织。</h2>
-          <p>公开 demo 展示的是一条完整路径：资料进入系统，被归类为标的、来源和倾向，再形成可以继续追问的资料库。</p>
+          <h2>
+            看见注意力，
+            <br />
+            正在向哪里集中。
+          </h2>
+          <p>从零散资料里提炼出重点标的、观点变化和可回溯依据。</p>
         </div>
         <div className="landing-example-board">
           <div className="landing-example-card primary">
-            <span>汇聚后的结果</span>
+            <span>注意力主线</span>
             <strong>AMD · BTC · ETH</strong>
-            <p>哪些标的被反复提到，可以用分布图快速扫一眼。</p>
+            <p>先看资料反复指向哪些名字。</p>
           </div>
           <div className="landing-example-card">
-            <span>背后的资料</span>
+            <span>原始依据</span>
             <strong>13F sector memo</strong>
-            <p>每条记录保留来源和摘要，不只留下一个结论。</p>
+            <p>每条记录保留来源、摘要和录入时间。</p>
           </div>
           <div className="landing-example-card">
-            <span>重新总结</span>
+            <span>继续追问</span>
             <strong>“目前怎么看 AMD？”</strong>
-            <p>回答会引用资料库内容，方便你继续核对。</p>
+            <p>回答引用资料库内容，方便继续核对。</p>
           </div>
         </div>
       </section>
 
       <section className="landing-final-cta">
         <span>从第一条资料开始</span>
-        <h2>让资料先汇聚，再让结构浮现。</h2>
-        <p>进入工作台后，先录入资料并确认识别结果；资料多起来后，系统会自动呈现你的研究注意力和证据脉络。</p>
+        <h2>把看过的资料，整理成可追溯的标的主线。</h2>
+        <p>先录入并确认识别结果；资料多起来后，系统会自动呈现值得继续追踪的方向。</p>
         <button onClick={onStart} type="button">开始使用</button>
       </section>
     </main>
+  );
+}
+
+function LandingMarketBackdrop() {
+  const groups = [
+    { className: "market-group group-a", bars: [22, 34, 18, 46, 30, 54, 26, 38] },
+    { className: "market-group group-b", bars: [18, 28, 44, 24, 36, 50, 32, 42] },
+    { className: "market-group group-c", bars: [36, 20, 48, 32, 58, 40, 28, 46] },
+    { className: "market-group group-d", bars: [20, 42, 30, 52, 24, 36, 56, 34] },
+    { className: "market-group group-e", bars: [30, 48, 26, 40, 58, 34, 44, 24] }
+  ];
+
+  return (
+    <div className="landing-market-backdrop" aria-hidden="true">
+      {groups.map((group) => (
+        <svg className={group.className} key={group.className} viewBox="0 0 220 120">
+          <polyline points="10,82 38,74 66,88 94,56 122,64 150,34 178,50 206,28" />
+          {group.bars.map((height, index) => {
+            const x = 18 + index * 26;
+            const mid = 82 - height * 0.45 + (index % 2 === 0 ? 5 : -5);
+            const bodyHeight = Math.max(12, height * 0.48);
+            const wickHeight = height + 18;
+            return (
+              <g className={index % 3 === 1 ? "gold" : undefined} key={`${group.className}-${index}`}>
+                <line x1={x} x2={x} y1={mid - wickHeight / 2} y2={mid + wickHeight / 2} />
+                <rect height={bodyHeight} rx="2" width="8" x={x - 4} y={mid - bodyHeight / 2} />
+              </g>
+            );
+          })}
+        </svg>
+      ))}
+    </div>
   );
 }
 
@@ -614,7 +651,7 @@ function LandingProductPreview() {
   return (
     <div className="landing-product-preview" aria-label="产品示例预览">
       <div className="landing-preview-top">
-        <span>信息汇聚结果</span>
+        <span>注意力主线</span>
         <strong>12 个标的 · 18 条资料</strong>
       </div>
       <div className="landing-preview-body">
@@ -641,12 +678,12 @@ function LandingProductPreview() {
         </div>
         <div className="landing-preview-stack">
           <div className="active">
-            <span>识别结果</span>
+            <span>当前标的</span>
             <strong>{activeSignal.ticker} · {activeSignal.action}</strong>
             <em>{activeSignal.source}</em>
           </div>
           <div>
-            <span>动态摘要</span>
+            <span>主线摘要</span>
             <strong>{activeSignal.summary}</strong>
             <em>updated with confirmed notes</em>
           </div>

@@ -3921,6 +3921,7 @@ h1 {
   max-width: 1200px;
   min-height: min(760px, calc(100vh - 80px));
   margin: 0 auto;
+  overflow: hidden;
   padding: 58px 0 42px;
 }
 
@@ -3950,18 +3951,106 @@ h1 {
   margin: 0;
   color: var(--muted);
   font-size: 16px;
-  line-height: 1.75;
+  line-height: 1.62;
 }
 
 .landing-hero-copy {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   min-width: 0;
+}
+
+.landing-market-backdrop {
+  position: absolute;
+  inset: 42px -7% 18px -4%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.88;
+  filter: blur(4px);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+.market-group {
+  position: absolute;
+  width: 220px;
+  height: 120px;
+  overflow: visible;
+  opacity: 0.3;
+  animation: landing-market-float 11s ease-in-out infinite;
+}
+
+.market-group polyline {
+  fill: none;
+  stroke: rgba(178, 193, 204, 0.42);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.4;
+}
+
+.market-group line,
+.market-group rect {
+  stroke: rgba(184, 198, 208, 0.54);
+}
+
+.market-group rect {
+  fill: rgba(184, 198, 208, 0.16);
+}
+
+.market-group .gold line,
+.market-group .gold rect {
+  stroke: rgba(207, 176, 105, 0.62);
+}
+
+.market-group .gold rect {
+  fill: rgba(207, 176, 105, 0.16);
+}
+
+.market-group.group-a {
+  left: 2%;
+  top: 14%;
+  transform: rotate(-5deg);
+}
+
+.market-group.group-b {
+  right: 24%;
+  top: 4%;
+  opacity: 0.24;
+  transform: rotate(4deg) scale(0.92);
+  animation-delay: -3s;
+  animation-duration: 13s;
+}
+
+.market-group.group-c {
+  left: 34%;
+  bottom: 8%;
+  opacity: 0.22;
+  transform: rotate(2deg) scale(1.08);
+  animation-delay: -6s;
+  animation-duration: 15s;
+}
+
+.market-group.group-d {
+  right: 0;
+  bottom: 20%;
+  opacity: 0.26;
+  transform: rotate(-7deg) scale(1.02);
+  animation-delay: -1.8s;
+  animation-duration: 12s;
+}
+
+.market-group.group-e {
+  left: 12%;
+  bottom: 30%;
+  opacity: 0.18;
+  transform: rotate(7deg) scale(0.82);
+  animation-delay: -8s;
+  animation-duration: 16s;
 }
 
 .landing-signal-flow {
   position: absolute;
   inset: 90px auto auto 34%;
+  z-index: 1;
   width: 320px;
   height: 250px;
   pointer-events: none;
@@ -4100,7 +4189,7 @@ h1 {
 
 .landing-product-preview {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   min-width: 0;
   border: 1px solid rgba(190, 203, 212, 0.16);
   border-radius: 18px;
@@ -4268,6 +4357,8 @@ h1 {
   margin-top: 14px;
   color: var(--text);
   font-size: 17px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .landing-feature-grid p,
@@ -4277,7 +4368,7 @@ h1 {
   margin: 10px 0 0;
   color: var(--muted);
   font-size: 13px;
-  line-height: 1.65;
+  line-height: 1.56;
 }
 
 .landing-example {
@@ -4290,10 +4381,12 @@ h1 {
 
 .landing-section-copy h2,
 .landing-final-cta h2 {
+  max-width: 560px;
   margin: 12px 0 0;
   color: var(--text);
   font-size: clamp(28px, 3vw, 42px);
   line-height: 1.08;
+  overflow-wrap: anywhere;
 }
 
 .landing-example-board {
@@ -4329,6 +4422,24 @@ h1 {
 
   50% {
     transform: translate3d(10px, -8px, 0);
+  }
+}
+
+@keyframes landing-market-float {
+  0%,
+  100% {
+    opacity: 0.16;
+    translate: 0 0;
+  }
+
+  45% {
+    opacity: 0.3;
+    translate: 12px -18px;
+  }
+
+  72% {
+    opacity: 0.22;
+    translate: -8px 10px;
   }
 }
 
@@ -5332,6 +5443,29 @@ h1 {
     display: none;
   }
 
+  .landing-market-backdrop {
+    inset: 72px -44% auto -18%;
+    height: 360px;
+    opacity: 0.38;
+    filter: blur(7px);
+  }
+
+  .market-group {
+    display: none;
+  }
+
+  .market-group.group-a,
+  .market-group.group-d {
+    display: block;
+    opacity: 0.16;
+    transform: scale(0.8);
+  }
+
+  .market-group.group-d {
+    right: 6%;
+    top: 42%;
+  }
+
   .landing-hero-copy {
     width: 100%;
     max-width: calc(100vw - 28px);
@@ -5347,6 +5481,7 @@ h1 {
 
   .landing-hero-copy p {
     font-size: 14px;
+    line-height: 1.58;
   }
 
   .landing-product-preview,
@@ -5432,6 +5567,7 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .market-group,
   .landing-preview-donut svg,
   .landing-preview-donut > div,
   .landing-preview-stack div,
