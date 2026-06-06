@@ -463,7 +463,7 @@ function LandingPage({ onStart }: { onStart: () => void }) {
           <strong>Portfolio Intelligence</strong>
         </div>
         <div className="landing-nav-links">
-          <a href="#landing-features">功能</a>
+          <a href="#landing-features">怎么用</a>
           <a href="#landing-example">示例</a>
           <a href="https://github.com/Vesper-Gu/portfolio-intelligence-tracker" rel="noreferrer" target="_blank">GitHub</a>
           <button onClick={onStart} type="button">开始使用</button>
@@ -472,17 +472,17 @@ function LandingPage({ onStart }: { onStart: () => void }) {
 
       <section className="landing-hero">
         <div className="landing-hero-copy">
-          <span className="landing-kicker">Research intelligence workspace</span>
-          <h1>把分散投研线索整理成可追溯的标的图谱。</h1>
-          <p>从研报、KOL 观点、个人笔记和链接中提取 ticker、动作与证据，生成分布分析、资料库和可追问的投研上下文。</p>
+          <span className="landing-kicker">给个人投资研究用的资料整理工具</span>
+          <h1>把看过的股票资料，整理成一张清楚的标的图。</h1>
+          <p>你粘贴研报、帖子或自己的笔记。系统帮你整理里面提到的股票、操作倾向和原文依据，最后生成一张分布图。</p>
           <div className="landing-actions">
             <button className="landing-primary" onClick={onStart} type="button">开始使用</button>
             <button className="landing-secondary" onClick={scrollToExample} type="button">查看示例</button>
           </div>
           <div className="landing-proof">
-            <span>Demo 数据</span>
-            <span>证据追溯</span>
-            <span>不提供投资建议</span>
+            <span>公开 Demo</span>
+            <span>可点回原始资料</span>
+            <span>不做买卖建议</span>
           </div>
         </div>
 
@@ -492,55 +492,55 @@ function LandingPage({ onStart }: { onStart: () => void }) {
       <section className="landing-feature-grid" id="landing-features">
         <div>
           <span>01</span>
-          <strong>导入资料</strong>
-          <p>粘贴文本或链接，把分散的投研片段放进确认队列。</p>
+          <strong>把资料放进来</strong>
+          <p>粘贴一段研报、帖子、公告摘要或自己的研究笔记。</p>
         </div>
         <div>
           <span>02</span>
-          <strong>确认信号</strong>
-          <p>人工确认 ticker、动作、方向和来源，避免未经确认的信息污染资料库。</p>
+          <strong>确认它说了什么</strong>
+          <p>检查系统识别出的 ticker、操作和来源，确认无误再入库。</p>
         </div>
         <div>
           <span>03</span>
-          <strong>生成分布</strong>
-          <p>按已确认资料统计 ticker 频次，查看注意力是否集中在少数标的。</p>
+          <strong>看提到最多的标的</strong>
+          <p>饼图会显示资料集中在哪些股票，避免只凭印象判断。</p>
         </div>
         <div>
           <span>04</span>
-          <strong>追溯证据</strong>
-          <p>从分布、资料库到问答引用，保留每条判断背后的原始依据。</p>
+          <strong>点回原文依据</strong>
+          <p>每个标的都能回到对应资料，方便复查为什么会有这个判断。</p>
         </div>
       </section>
 
       <section className="landing-example" id="landing-example">
         <div className="landing-section-copy">
-          <span>Live demo shape</span>
-          <h2>示例不是装饰图，而是产品实际工作流。</h2>
-          <p>公开 demo 使用合成数据，展示从确认资料到 ticker 分布、证据引用和问答追踪的完整路径。</p>
+          <span>示例数据</span>
+          <h2>你会看到哪些股票被反复提到。</h2>
+          <p>下面是公开 demo 的展示方式：先看分布，再点进某个 ticker，查看它对应的资料和原文依据。</p>
         </div>
         <div className="landing-example-board">
           <div className="landing-example-card primary">
-            <span>Ticker Distribution</span>
+            <span>分布图</span>
             <strong>AMD · BTC · ETH</strong>
-            <p>将已确认资料汇总为 ticker 占比，快速判断研究注意力分布。</p>
+            <p>哪些标的被资料反复提到，一眼就能看到。</p>
           </div>
           <div className="landing-example-card">
-            <span>Evidence Queue</span>
+            <span>资料来源</span>
             <strong>13F sector memo</strong>
-            <p>每个动作都连接回来源、摘要和确认记录。</p>
+            <p>每条记录保留来源和摘要，不只留下一个结论。</p>
           </div>
           <div className="landing-example-card">
-            <span>Ask Library</span>
+            <span>继续追问</span>
             <strong>“目前怎么看 AMD？”</strong>
-            <p>问答只基于资料库引用，避免脱离证据的泛泛回答。</p>
+            <p>回答会引用资料库内容，方便你继续核对。</p>
           </div>
         </div>
       </section>
 
       <section className="landing-final-cta">
-        <span>Start with one note</span>
-        <h2>从一段文本或一个链接开始。</h2>
-        <p>进入工作台后，先录入资料并确认候选信号；确认后的内容会自动生成分布图和证据链。</p>
+        <span>从第一条资料开始</span>
+        <h2>先粘贴一段你刚看过的内容。</h2>
+        <p>确认后，它会进入资料库；资料多起来后，分布图会自动显示你的研究注意力集中在哪里。</p>
         <button onClick={onStart} type="button">开始使用</button>
       </section>
     </main>
@@ -551,8 +551,8 @@ function LandingProductPreview() {
   return (
     <div className="landing-product-preview" aria-label="产品示例预览">
       <div className="landing-preview-top">
-        <span>Portfolio map</span>
-        <strong>12 tickers · 18 notes</strong>
+        <span>标的分布</span>
+        <strong>12 个标的 · 18 条资料</strong>
       </div>
       <div className="landing-preview-body">
         <div className="landing-preview-donut">
@@ -573,19 +573,19 @@ function LandingProductPreview() {
         </div>
         <div className="landing-preview-stack">
           <div>
-            <span>Parsed signal</span>
+            <span>识别结果</span>
             <strong>AMD · 加仓</strong>
             <em>13F sector memo</em>
           </div>
           <div>
-            <span>Evidence citation</span>
+            <span>原文依据</span>
             <strong>原始资料可打开</strong>
             <em>source linked</em>
           </div>
           <div>
-            <span>RAG follow-up</span>
+            <span>继续追问</span>
             <strong>问这个标的</strong>
-            <em>grounded answer</em>
+            <em>based on library</em>
           </div>
         </div>
       </div>
