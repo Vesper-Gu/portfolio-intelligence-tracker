@@ -485,14 +485,15 @@ function LandingPage({ onStart }: { onStart: () => void }) {
             <button className="landing-primary" onClick={onStart} type="button">开始使用</button>
             <button className="landing-secondary" onClick={scrollToExample} type="button">查看示例</button>
           </div>
-          <div className="landing-proof">
-            <span>公开 Demo</span>
-            <span>信息来源可追溯</span>
-            <span>不做买卖建议</span>
-          </div>
         </div>
 
         <LandingProductPreview />
+      </section>
+
+      <section className="landing-proof-strip" aria-label="产品边界">
+        <span>公开 Demo</span>
+        <span>信息来源可追溯</span>
+        <span>不做买卖建议</span>
       </section>
 
       <section className="landing-feature-grid" id="landing-features">
@@ -520,7 +521,6 @@ function LandingPage({ onStart }: { onStart: () => void }) {
 
       <section className="landing-example" id="landing-example">
         <div className="landing-section-copy">
-          <span>示例数据</span>
           <h2>
             看见注意力，
             <br />

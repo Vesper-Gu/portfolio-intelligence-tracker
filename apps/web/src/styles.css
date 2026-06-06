@@ -4170,14 +4170,19 @@ h1 {
   color: #d9c08a;
 }
 
-.landing-proof {
+.landing-proof-strip {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
-  margin-top: 22px;
+  max-width: 1200px;
+  margin: -12px auto 22px;
+  border-top: 1px solid rgba(185, 198, 207, 0.08);
+  border-bottom: 1px solid rgba(185, 198, 207, 0.08);
+  padding: 12px 0;
 }
 
-.landing-proof span {
+.landing-proof-strip span {
   border: 1px solid rgba(185, 198, 207, 0.14);
   border-radius: 999px;
   background: rgba(18, 21, 24, 0.74);
@@ -5418,7 +5423,7 @@ h1 {
   .landing-nav,
   .landing-nav-links,
   .landing-actions,
-  .landing-proof {
+  .landing-proof-strip {
     flex-wrap: wrap;
   }
 
@@ -5448,6 +5453,12 @@ h1 {
     height: 360px;
     opacity: 0.38;
     filter: blur(7px);
+  }
+
+  .landing-proof-strip {
+    justify-content: flex-start;
+    margin: 0 0 22px;
+    padding: 12px 0;
   }
 
   .market-group {
