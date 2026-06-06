@@ -3856,12 +3856,23 @@ h1 {
 
 .dashboard-minimal-grid {
   display: grid;
-  grid-template-columns: minmax(360px, 0.95fr) minmax(360px, 0.95fr) minmax(320px, 0.72fr);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.42fr);
   gap: 18px;
   align-items: start;
 }
 
+.dashboard-minimal-grid > .dashboard-side-panel,
+.dashboard-minimal-grid > .dashboard-recent-panel {
+  grid-column: 1;
+}
+
+.dashboard-minimal-grid > .dashboard-recent-panel {
+  grid-row: 2;
+}
+
 .dashboard-actions-panel {
+  grid-column: 2;
+  grid-row: 1 / span 2;
   min-height: 0;
 }
 
@@ -4218,6 +4229,13 @@ h1 {
   .distribution-layout,
   .distribution-chart-body {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-minimal-grid > .dashboard-side-panel,
+  .dashboard-minimal-grid > .dashboard-recent-panel,
+  .dashboard-minimal-grid > .dashboard-actions-panel {
+    grid-column: 1;
+    grid-row: auto;
   }
 
   .distribution-summary {
