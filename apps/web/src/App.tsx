@@ -1105,7 +1105,7 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
           ))}
         </aside>
 
-        <section className="content-area">
+        <section className="content-area research-stage">
           <h1>{title}</h1>
           {view === "dashboard" && (
             <DashboardView
@@ -1114,9 +1114,14 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
                 setFocusedIngestId(null);
                 setView("ingest");
               }}
-              onOpenLibrary={() => setView("library")}
               onOpenDistribution={() => setView("distribution")}
+              pendingIngestItems={pendingIngestItems}
               portfolioPositions={portfolioPositions}
+              recentEvents={recentEvents}
+              onOpenTicker={(ticker) => {
+                setLibraryFocusTicker(ticker);
+                setView("library");
+              }}
             />
           )}
           {view === "distribution" && (
@@ -1439,73 +1444,129 @@ function DashboardView({
   dataStatus,
   onOpenIngest,
   onOpenDistribution,
-  onOpenLibrary,
-  portfolioPositions
+  onOpenTicker,
+  pendingIngestItems,
+  portfolioPositions,
+  recentEvents
 }: {
   dataStatus: "api" | "error" | "loading";
   onOpenIngest: () => void;
   onOpenDistribution: () => void;
-  onOpenLibrary: () => void;
+  onOpenTicker: (ticker: string) => void;
+  pendingIngestItems: IngestItem[];
   portfolioPositions: PortfolioPosition[];
+  recentEvents: HoldingEvent[];
 }) {
   const frequency = buildTickerFrequencyModel(portfolioPositions);
+  const activePositions = portfolioPositions.filter((position) => position.status === "活跃");
+  const topPosition = activePositions[0];
+  const sourceRows = recentEvents.slice(0, 4);
+  const pendingRows = pendingIngestItems.slice(0, Math.max(0, 4 - sourceRows.length));
+  const statusLabel = dataStatus === "api" ? `${frequency.totalHoldings} 条资料 · ${activePositions.length} 条标的主线` : dataStatus === "loading" ? "正在读取资料库" : "资料库连接失败";
 
   return (
-    <div className="home-page">
-      <section className="workspace-split home-hero">
-        <div className="workspace-section home-hero-copy">
-          <span>{publicDemoMode ? "Demo Research Workspace" : "Research Workspace"}</span>
-          <h2>把分散的投研线索，整理成可追溯的标的图谱。</h2>
-          <p>粘贴研报、笔记或链接，系统会自动提取 ticker、观点和来源，并生成分布、证据链和可追问的资料库。</p>
-          <div className="home-hero-actions">
-            <button className="primary-action" onClick={onOpenIngest} type="button">导入资料</button>
-            <button className="secondary-action" onClick={onOpenDistribution} type="button">查看分布</button>
-          </div>
-          <div className="home-trust-note">
-            {publicDemoMode
-              ? "当前为合成数据 Demo：不上传真实截图，不连接真实模型，不提供投资建议。"
-              : "系统自动整理资料；识别失败的内容会存档，不进入分布和持仓结论。"}
-          </div>
-        </div>
-        <TickerDistributionPreviewCard
-          dataStatus={dataStatus}
-          frequency={frequency}
-          onOpenDistribution={onOpenDistribution}
-          onOpenIngest={onOpenIngest}
-        />
-      </section>
-
-      <section className="workspace-flow home-workflow" aria-label="资料生成分布流程">
-        <div className="data-row home-workflow-card">
-          <span>01</span>
-          <strong>粘贴文本或链接</strong>
-          <p>把研报摘要、KOL 观点、个人笔记或公告链接放进录入队列。</p>
-        </div>
-        <div className="data-row home-workflow-card">
-          <span>02</span>
-          <strong>AI 自动整理</strong>
-          <p>系统提取 ticker、动作、来源和依据；无法识别的资料会自动存档。</p>
-        </div>
-        <div className="data-row home-workflow-card">
-          <span>03</span>
-          <strong>生成分布与证据链</strong>
-          <p>按已入库资料生成 ticker 频次占比，并连接到资料库和问答引用。</p>
+    <div className="home-page research-home">
+      <section className="research-home-copy">
+        <span>{publicDemoMode ? "Demo Workspace" : "Research Workspace"}</span>
+        <h2>示例资料整理后，会看到什么。</h2>
+        <p>标的、观点、来源和变化会被放到同一张工作台里。</p>
+        <div className="home-hero-actions">
+          <button className="primary-action" onClick={onOpenIngest} type="button">导入资料</button>
+          <button className="secondary-action" onClick={onOpenDistribution} type="button">查看分布</button>
         </div>
       </section>
 
-      <section className="workspace-section home-entry-band">
-        <button onClick={onOpenIngest} type="button">
-          <span>开始录入</span>
-          <strong>从一段文本或一个链接开始</strong>
-        </button>
-        <button onClick={onOpenDistribution} type="button">
-          <span>查看分布</span>
-          <strong>{frequency.slices[0] ? `${frequency.slices[0].label} 最高频` : "导入资料后自动生成"}</strong>
-        </button>
-        <button onClick={onOpenLibrary} type="button">
-          <span>打开资料库</span>
-          <strong>{frequency.activePositions.length ? `${frequency.activePositions.length} 个标的可追溯` : "等待已入库资料"}</strong>
-        </button>
+      <section className="research-dashboard" aria-label="投研工作台快照">
+        <div className="research-dashboard-top">
+          <span>RESEARCH SNAPSHOT</span>
+          <strong>{statusLabel}</strong>
+        </div>
+        <div className="research-dashboard-grid">
+          <section className="research-pane source-feed">
+            <div className="panel-header">
+              <span>资料输入流</span>
+              <strong>最近变化</strong>
+            </div>
+            <div className="research-list">
+              {sourceRows.length || pendingRows.length ? (
+                <>
+                  {sourceRows.map((event) => (
+                    <article className="research-row active" key={event.id}>
+                      <div>
+                        <span>{event.ticker}</span>
+                        <em>{formatShortDate(event.createdAt)}</em>
+                      </div>
+                      <strong>{event.action}</strong>
+                      <p>{event.summary}</p>
+                    </article>
+                  ))}
+                  {pendingRows.map((item) => (
+                    <article className="research-row" key={item.id}>
+                      <div>
+                        <span>{formatSourceType(item.sourceType)}</span>
+                        <em>{item.status}</em>
+                      </div>
+                      <strong>{item.extractedTicker ?? item.ticker}</strong>
+                      <p>{item.extractionSummary ?? getUserFacingSourceSummary(item)}</p>
+                    </article>
+                  ))}
+                </>
+              ) : (
+                <p className="empty-state">暂无资料。导入一段研报、帖子或笔记后，这里会显示整理结果。</p>
+              )}
+            </div>
+          </section>
+
+          <section className="research-pane ticker-lines">
+            <div className="panel-header">
+              <span>标的主线</span>
+              <strong>按资料强度</strong>
+            </div>
+            <div className="research-table-head" aria-hidden="true">
+              <span>Ticker</span>
+              <span>观点</span>
+              <span>动作</span>
+              <span>资料</span>
+            </div>
+            <div className="research-ticker-table">
+              {activePositions.length ? activePositions.slice(0, 5).map((position) => (
+                <button key={position.ticker} onClick={() => onOpenTicker(position.ticker)} type="button">
+                  <span>
+                    <strong>{position.ticker}</strong>
+                    <em>{position.sources[0] ?? "source linked"}</em>
+                  </span>
+                  <b className={toneClass[stanceTone(position.netStance)]}>{position.netStance}</b>
+                  <i>{position.latestAction}</i>
+                  <small>{position.holdingsCount} 条</small>
+                  <mark style={{ width: `${Math.max(18, Math.min(100, position.holdingsCount * 12))}%` }} />
+                </button>
+              )) : (
+                <p className="empty-state">等待已入库 ticker。系统会按资料出现频次生成主线。</p>
+              )}
+            </div>
+          </section>
+
+          <aside className="research-pane research-detail-pane">
+            <div className="panel-header">
+              <span>持仓参考</span>
+              <strong>{topPosition?.ticker ?? "等待资料"}</strong>
+            </div>
+            <div className="research-decision">
+              <span>重点变化</span>
+              <strong>{topPosition ? `${topPosition.ticker} 被 ${topPosition.holdingsCount} 条资料提到。` : "先导入资料，再形成判断。"}</strong>
+              <p>{topPosition ? `当前聚合方向为 ${topPosition.netStance}，最近动作是 ${topPosition.latestAction}。` : "系统会把资料整理为标的、观点、来源和变化。"} </p>
+            </div>
+            <div className="research-kpis">
+              <div><span>资料数</span><strong>{frequency.totalHoldings}</strong></div>
+              <div><span>标的</span><strong>{activePositions.length}</strong></div>
+              <div><span>最高频</span><strong>{topPosition?.ticker ?? "暂无"}</strong></div>
+            </div>
+            <button className="research-question" onClick={topPosition ? () => onOpenTicker(topPosition.ticker) : onOpenIngest} type="button">
+              <span>下一步</span>
+              <strong>{topPosition ? `打开 ${topPosition.ticker} 资料库` : "导入第一组资料"}</strong>
+            </button>
+          </aside>
+        </div>
       </section>
     </div>
   );

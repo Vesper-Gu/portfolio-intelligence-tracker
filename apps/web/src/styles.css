@@ -9008,3 +9008,745 @@ body {
     white-space: normal;
   }
 }
+
+/* Workbench contrast pass: light empty states, continuous sections, no dark blocks with dark text. */
+.terminal-shell .distribution-intro > div:first-child {
+  border: 0;
+  border-left: 2px solid rgba(154, 75, 55, 0.32);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 4px 0 4px 22px;
+}
+
+.terminal-shell .distribution-intro span,
+.terminal-shell .home-preview-header span,
+.terminal-shell .distribution-empty-panel .panel-header span {
+  color: #a24c38;
+}
+
+.terminal-shell .distribution-intro h2 {
+  max-width: 12ch;
+  color: #111418;
+  letter-spacing: -0.04em;
+}
+
+.terminal-shell .distribution-intro p {
+  max-width: 52ch;
+  color: #687078;
+}
+
+.terminal-shell .distribution-empty-panel {
+  background: transparent;
+}
+
+.terminal-shell .distribution-empty-panel .panel-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid rgba(21, 23, 27, 0.1);
+  padding-bottom: 14px;
+}
+
+.terminal-shell .distribution-empty-panel .panel-header strong {
+  color: #6d757d;
+}
+
+.terminal-shell .distribution-onboarding {
+  grid-template-columns: minmax(220px, 0.38fr) minmax(0, 1fr);
+  gap: clamp(26px, 5vw, 68px);
+  border: 0;
+  background: transparent;
+  padding: 26px 0 0;
+}
+
+.terminal-shell .distribution-onboarding-visual {
+  min-height: 220px;
+  border: 0;
+  border-right: 1px solid rgba(21, 23, 27, 0.1);
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, rgba(21, 23, 27, 0.045) 1px, transparent 1px) 0 0 / 42px 42px,
+    linear-gradient(180deg, rgba(247, 248, 248, 0.72), rgba(239, 241, 242, 0.3));
+}
+
+.terminal-shell .distribution-onboarding-visual::before {
+  width: 132px;
+  height: 132px;
+  border-color: rgba(21, 23, 27, 0.08);
+}
+
+.terminal-shell .distribution-onboarding-visual span:nth-child(1) {
+  border-top-color: rgba(146, 166, 174, 0.5);
+}
+
+.terminal-shell .distribution-onboarding-visual span:nth-child(2) {
+  border-right-color: rgba(154, 75, 55, 0.34);
+}
+
+.terminal-shell .distribution-onboarding-visual span:nth-child(3) {
+  border-bottom-color: rgba(210, 170, 92, 0.38);
+}
+
+.terminal-shell .distribution-onboarding h3 {
+  max-width: 14ch;
+  color: #111418;
+  letter-spacing: -0.035em;
+}
+
+.terminal-shell .distribution-onboarding p {
+  color: #687078;
+}
+
+.terminal-shell .distribution-onboarding ol {
+  border-top: 1px solid rgba(21, 23, 27, 0.1);
+  border-bottom: 1px solid rgba(21, 23, 27, 0.1);
+  gap: 0;
+}
+
+.terminal-shell .distribution-onboarding li {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  border: 0;
+  border-bottom: 1px solid rgba(21, 23, 27, 0.08);
+  border-radius: 0;
+  background: transparent;
+  color: #24282d;
+  padding: 0;
+}
+
+.terminal-shell .distribution-onboarding li:last-child {
+  border-bottom: 0;
+}
+
+.terminal-shell .home-preview-card {
+  color: #111418;
+}
+
+.terminal-shell .home-mini-donut.empty {
+  opacity: 1;
+}
+
+.terminal-shell .home-mini-skeleton {
+  border-color: rgba(21, 23, 27, 0.08);
+}
+
+.terminal-shell .home-mini-donut strong,
+.terminal-shell .home-preview-copy strong,
+.terminal-shell .home-preview-rank b {
+  color: #111418;
+}
+
+.terminal-shell .home-mini-donut span {
+  color: #a24c38;
+}
+
+.terminal-shell .home-preview-copy p,
+.terminal-shell .home-preview-rank span,
+.terminal-shell .home-preview-steps span {
+  color: #687078;
+}
+
+.terminal-shell .home-preview-rank span,
+.terminal-shell .home-preview-steps span {
+  min-height: 40px;
+  border: 0;
+  border-bottom: 1px solid rgba(21, 23, 27, 0.08);
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.terminal-shell .home-preview-rank span:last-child,
+.terminal-shell .home-preview-steps span:last-child {
+  border-bottom: 0;
+}
+
+.terminal-shell .distribution-donut-stage {
+  color: #f5f1e8;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(210, 170, 92, 0.12), transparent 35%),
+    linear-gradient(180deg, rgba(24, 27, 31, 0.96), rgba(12, 14, 16, 0.96));
+}
+
+.terminal-shell .distribution-donut-center span,
+.terminal-shell .distribution-donut-center strong,
+.terminal-shell .distribution-donut-center em {
+  color: #f5f1e8;
+}
+
+.terminal-shell .distribution-donut-center em {
+  color: #d8a85d;
+}
+
+@media (max-width: 760px) {
+  .terminal-shell .distribution-intro > div:first-child {
+    border-left: 0;
+    border-top: 2px solid rgba(154, 75, 55, 0.32);
+    padding: 18px 0 0;
+  }
+
+  .terminal-shell .distribution-onboarding {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .terminal-shell .distribution-onboarding-visual {
+    min-height: 180px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(21, 23, 27, 0.1);
+  }
+}
+
+/* Research Snapshot workbench: shared dark product stage using real app data. */
+.terminal-shell .content-area.research-stage {
+  position: relative;
+  max-width: 1520px;
+  margin: 18px auto 44px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px) 0 0 / 76px 76px,
+    linear-gradient(180deg, rgba(29, 32, 37, 0.98), rgba(8, 10, 12, 0.98));
+  box-shadow: 0 34px 90px rgba(17, 20, 24, 0.22);
+  color: #f3f1eb;
+  overflow: hidden;
+  padding: clamp(24px, 3vw, 42px);
+}
+
+.terminal-shell .content-area.research-stage::before {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 82% 8%, rgba(154, 75, 55, 0.2), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 30%);
+  content: "";
+  pointer-events: none;
+}
+
+.terminal-shell .content-area.research-stage > * {
+  position: relative;
+  z-index: 1;
+}
+
+.terminal-shell .content-area.research-stage > h1 {
+  margin: 0 0 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(243, 241, 235, 0.92);
+  font-size: 15px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  padding: 0 0 18px;
+  text-transform: uppercase;
+}
+
+.terminal-shell .research-stage .panel,
+.terminal-shell .research-stage .workspace-section,
+.terminal-shell .research-stage .rail-list,
+.terminal-shell .research-stage .detail-pane,
+.terminal-shell .research-stage .home-preview-card,
+.terminal-shell .research-stage .home-hero-copy,
+.terminal-shell .research-stage .home-entry-band,
+.terminal-shell .research-stage .home-workflow-card,
+.terminal-shell .research-stage .distribution-empty-panel,
+.terminal-shell .research-stage .distribution-onboarding,
+.terminal-shell .research-stage .library-filter-panel,
+.terminal-shell .research-stage .library-empty-panel,
+.terminal-shell .research-stage .ticker-records-panel,
+.terminal-shell .research-stage .ingest-import-panel,
+.terminal-shell .research-stage .ingest-results-panel,
+.terminal-shell .research-stage .review-panel,
+.terminal-shell .research-stage .rag-query-panel,
+.terminal-shell .research-stage .rag-chat-panel,
+.terminal-shell .research-stage .rag-citations-panel,
+.terminal-shell .research-stage .settings-panel {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: transparent;
+  box-shadow: none;
+  color: #f3f1eb;
+}
+
+.terminal-shell .research-stage .panel,
+.terminal-shell .research-stage .workspace-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.terminal-shell .research-stage .panel-header {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.terminal-shell .research-stage .panel-header span,
+.terminal-shell .research-stage .metric-card span,
+.terminal-shell .research-stage label span,
+.terminal-shell .research-stage .home-preview-header span,
+.terminal-shell .research-stage .distribution-intro span,
+.terminal-shell .research-stage .settings-panel .panel-header span {
+  color: #b9553f;
+  letter-spacing: 0.12em;
+}
+
+.terminal-shell .research-stage .panel-header strong,
+.terminal-shell .research-stage h2,
+.terminal-shell .research-stage h3,
+.terminal-shell .research-stage strong,
+.terminal-shell .research-stage b,
+.terminal-shell .research-stage .home-mini-donut strong,
+.terminal-shell .research-stage .distribution-intro h2,
+.terminal-shell .research-stage .distribution-onboarding h3 {
+  color: #f7f3ea;
+}
+
+.terminal-shell .research-stage p,
+.terminal-shell .research-stage em,
+.terminal-shell .research-stage small,
+.terminal-shell .research-stage .empty-state,
+.terminal-shell .research-stage .home-preview-copy p,
+.terminal-shell .research-stage .distribution-intro p,
+.terminal-shell .research-stage .distribution-onboarding p,
+.terminal-shell .research-stage .settings-copy,
+.terminal-shell .research-stage .ingest-panel-copy {
+  color: rgba(243, 241, 235, 0.62);
+}
+
+.terminal-shell .research-stage .primary-action,
+.terminal-shell .research-stage .submit-ingest,
+.terminal-shell .research-stage .panel-link-button,
+.terminal-shell .research-stage .save-button {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: #f1eee5;
+  color: #111418;
+}
+
+.terminal-shell .research-stage .secondary-action,
+.terminal-shell .research-stage .button-row button,
+.terminal-shell .research-stage .candidate-row-actions button,
+.terminal-shell .research-stage .settings-actions button,
+.terminal-shell .research-stage .ticker-card-actions button,
+.terminal-shell .research-stage .distribution-selected-actions button,
+.terminal-shell .research-stage .library-filter-panel button,
+.terminal-shell .research-stage .rag-suggestion-list button,
+.terminal-shell .research-stage .rag-followup-list button {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.055);
+  color: #f3f1eb;
+}
+
+.terminal-shell .research-stage .terminal-input,
+.terminal-shell .research-stage .terminal-select,
+.terminal-shell .research-stage .terminal-textarea,
+.terminal-shell .research-stage input,
+.terminal-shell .research-stage select,
+.terminal-shell .research-stage textarea {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.055);
+  color: #f7f3ea;
+}
+
+.terminal-shell .research-stage input::placeholder,
+.terminal-shell .research-stage textarea::placeholder {
+  color: rgba(243, 241, 235, 0.36);
+}
+
+.terminal-shell .research-stage .metric-card,
+.terminal-shell .research-stage .field-grid .field,
+.terminal-shell .research-stage .distribution-selected-meta span,
+.terminal-shell .research-stage .ingest-result-metrics div,
+.terminal-shell .research-stage .ticker-records-summary .field,
+.terminal-shell .research-stage .settings-copy,
+.terminal-shell .research-stage .source-summary,
+.terminal-shell .research-stage .review-source,
+.terminal-shell .research-stage .advanced-correction,
+.terminal-shell .research-stage .candidate-history {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: transparent;
+}
+
+.terminal-shell .research-home {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.34fr) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 58px);
+  align-items: start;
+}
+
+.terminal-shell .research-home-copy {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding-top: clamp(10px, 4vw, 68px);
+}
+
+.terminal-shell .research-home-copy > span,
+.terminal-shell .research-dashboard-top span,
+.terminal-shell .research-pane .panel-header span,
+.terminal-shell .research-decision span,
+.terminal-shell .research-kpis span,
+.terminal-shell .research-question span {
+  color: #b9553f;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.terminal-shell .research-home-copy h2 {
+  max-width: 7.5ch;
+  margin: 0;
+  color: #f7f3ea;
+  font-size: clamp(42px, 5.2vw, 76px);
+  letter-spacing: -0.065em;
+  line-height: 0.98;
+}
+
+.terminal-shell .research-home-copy p {
+  max-width: 28ch;
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.55;
+}
+
+.terminal-shell .research-dashboard {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px) 0 0 / 58px 58px,
+    linear-gradient(180deg, rgba(22, 25, 30, 0.92), rgba(6, 8, 10, 0.92));
+  overflow: hidden;
+}
+
+.terminal-shell .research-dashboard-top,
+.terminal-shell .research-dashboard-grid {
+  display: grid;
+}
+
+.terminal-shell .research-dashboard-top {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  min-height: 72px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0 clamp(18px, 2.4vw, 30px);
+}
+
+.terminal-shell .research-dashboard-top strong {
+  color: rgba(243, 241, 235, 0.68);
+  font-size: 14px;
+}
+
+.terminal-shell .research-dashboard-grid {
+  grid-template-columns: minmax(240px, 0.78fr) minmax(300px, 1fr) minmax(260px, 0.74fr);
+  min-height: 520px;
+}
+
+.terminal-shell .research-pane {
+  min-width: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 22px;
+}
+
+.terminal-shell .research-pane:last-child {
+  border-right: 0;
+}
+
+.terminal-shell .research-list,
+.terminal-shell .research-ticker-table {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.terminal-shell .research-row {
+  display: grid;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 18px 0;
+}
+
+.terminal-shell .research-row.active,
+.terminal-shell .research-ticker-table button:hover,
+.terminal-shell .research-ticker-table button:focus-visible,
+.terminal-shell .research-question:hover {
+  background: linear-gradient(90deg, rgba(185, 85, 63, 0.16), transparent 78%);
+}
+
+.terminal-shell .research-row div,
+.terminal-shell .research-table-head,
+.terminal-shell .research-ticker-table button {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) 0.56fr 0.72fr 0.48fr;
+  gap: 14px;
+  align-items: center;
+}
+
+.terminal-shell .research-row div {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.terminal-shell .research-row p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.terminal-shell .research-table-head {
+  min-height: 42px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(243, 241, 235, 0.45);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.terminal-shell .research-ticker-table button {
+  position: relative;
+  min-height: 86px;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: #f3f1eb;
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0;
+  text-align: left;
+}
+
+.terminal-shell .research-ticker-table button span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.terminal-shell .research-ticker-table button span strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 22px;
+}
+
+.terminal-shell .research-ticker-table button span em {
+  overflow: hidden;
+  color: rgba(243, 241, 235, 0.4);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-shell .research-ticker-table button i {
+  color: rgba(243, 241, 235, 0.75);
+  font-style: normal;
+  font-weight: 850;
+}
+
+.terminal-shell .research-ticker-table button small {
+  color: rgba(243, 241, 235, 0.72);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.terminal-shell .research-ticker-table button mark {
+  position: absolute;
+  inset: auto auto 0 0;
+  height: 2px;
+  background: linear-gradient(90deg, #f1eee5, #b9553f);
+  content: "";
+}
+
+.terminal-shell .research-detail-pane {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+}
+
+.terminal-shell .research-decision {
+  display: grid;
+  gap: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 22px;
+}
+
+.terminal-shell .research-decision strong {
+  font-size: clamp(26px, 2.6vw, 42px);
+  letter-spacing: -0.045em;
+  line-height: 1.1;
+}
+
+.terminal-shell .research-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.terminal-shell .research-kpis div {
+  display: grid;
+  gap: 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 14px 10px 14px 0;
+}
+
+.terminal-shell .research-kpis div:last-child {
+  border-right: 0;
+}
+
+.terminal-shell .research-kpis strong {
+  font-size: 22px;
+}
+
+.terminal-shell .research-question {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(185, 85, 63, 0.42);
+  border-radius: 12px;
+  background: rgba(185, 85, 63, 0.12);
+  color: #f3f1eb;
+  cursor: pointer;
+  padding: 18px;
+  text-align: left;
+}
+
+.terminal-shell .research-question strong {
+  font-size: 18px;
+}
+
+.terminal-shell .research-stage .distribution-intro {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.terminal-shell .research-stage .distribution-intro > div:first-child {
+  border-left-color: rgba(185, 85, 63, 0.46);
+  background: transparent;
+}
+
+.terminal-shell .research-stage .distribution-summary,
+.terminal-shell .research-stage .home-preview-rank,
+.terminal-shell .research-stage .home-preview-steps,
+.terminal-shell .research-stage .distribution-onboarding ol,
+.terminal-shell .research-stage .library-filter-bar,
+.terminal-shell .research-stage .ticker-record-filter-bar,
+.terminal-shell .research-stage .source-metadata-grid,
+.terminal-shell .research-stage .distribution-selected-meta,
+.terminal-shell .research-stage .field-grid,
+.terminal-shell .research-stage .ticker-records-summary,
+.terminal-shell .research-stage .ingest-result-metrics {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.terminal-shell .research-stage .distribution-onboarding-visual,
+.terminal-shell .research-stage .home-mini-donut,
+.terminal-shell .research-stage .home-mini-donut.empty,
+.terminal-shell .research-stage .distribution-donut-stage {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px) 0 0 / 48px 48px,
+    radial-gradient(circle at 50% 45%, rgba(185, 85, 63, 0.13), transparent 38%),
+    rgba(255, 255, 255, 0.035);
+}
+
+.terminal-shell .research-stage .distribution-onboarding li,
+.terminal-shell .research-stage .home-preview-rank span,
+.terminal-shell .research-stage .home-preview-steps span,
+.terminal-shell .research-stage .distribution-rank-list button,
+.terminal-shell .research-stage .queue-item,
+.terminal-shell .research-stage .citation-card,
+.terminal-shell .research-stage .ticker-card,
+.terminal-shell .research-stage .candidate-row,
+.terminal-shell .research-stage .chat-message {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: #f3f1eb;
+}
+
+.terminal-shell .research-stage .distribution-rank-list button.active,
+.terminal-shell .research-stage .queue-item.active,
+.terminal-shell .research-stage .ticker-card.selected,
+.terminal-shell .research-stage .candidate-row.active,
+.terminal-shell .research-stage .chat-message.assistant {
+  background: rgba(185, 85, 63, 0.13);
+}
+
+.terminal-shell .research-stage .distribution-rank-list strong,
+.terminal-shell .research-stage .distribution-rank-list b,
+.terminal-shell .research-stage .queue-item em,
+.terminal-shell .research-stage .citation-card p,
+.terminal-shell .research-stage .ticker-card p {
+  color: rgba(243, 241, 235, 0.62);
+}
+
+.terminal-shell .research-stage .segmented-control {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.terminal-shell .research-stage .segmented-control button {
+  color: rgba(243, 241, 235, 0.64);
+}
+
+.terminal-shell .research-stage .segmented-control button.active {
+  background: #f1eee5;
+  color: #111418;
+}
+
+@media (max-width: 1180px) {
+  .terminal-shell .research-home,
+  .terminal-shell .research-dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .terminal-shell .research-home-copy {
+    padding-top: 0;
+  }
+
+  .terminal-shell .research-home-copy h2 {
+    max-width: 12ch;
+  }
+
+  .terminal-shell .research-pane {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .terminal-shell .research-pane:last-child {
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .terminal-shell .content-area.research-stage {
+    margin: 10px 10px 28px;
+    border-radius: 18px;
+    padding: 20px 16px;
+  }
+
+  .terminal-shell .research-dashboard-top {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 18px;
+  }
+
+  .terminal-shell .research-row div,
+  .terminal-shell .research-table-head,
+  .terminal-shell .research-ticker-table button {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .terminal-shell .research-table-head {
+    display: none;
+  }
+
+  .terminal-shell .research-ticker-table button b,
+  .terminal-shell .research-ticker-table button i {
+    display: none;
+  }
+
+  .terminal-shell .research-kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .terminal-shell .research-kpis div {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .terminal-shell .research-kpis div:last-child {
+    border-bottom: 0;
+  }
+}
