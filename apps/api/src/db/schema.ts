@@ -1,7 +1,7 @@
 import { index, pgEnum, pgTable, integer, primaryKey, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 export const ingestKindEnum = pgEnum("ingest_kind", ["link", "text", "screenshot", "filing"]);
-export const ingestStatusEnum = pgEnum("ingest_status", ["可接受", "需人工确认", "待复核", "已接受", "已驳回", "已修改"]);
+export const ingestStatusEnum = pgEnum("ingest_status", ["可接受", "需人工确认", "待复核", "已接受", "已驳回", "已修改", "已存档"]);
 export const extractionProviderEnum = pgEnum("extraction_provider", ["rule_v1", "deepseek_text", "ocr_stub", "vision_llm"]);
 export const capabilityNameEnum = pgEnum("capability_name", ["rag_query", "extract_signal", "image_upload"]);
 export const capabilityStatusEnum = pgEnum("capability_status", ["success", "error"]);

@@ -118,7 +118,8 @@ const ingestStatusTone: Record<IngestStatus, Tone> = {
   "待复核": "warning",
   "已接受": "positive",
   "已驳回": "negative",
-  "已修改": "warning"
+  "已修改": "warning",
+  "已存档": "neutral"
 };
 
 function actionTone(action: string): Tone {
@@ -258,7 +259,7 @@ function getOriginalEvidenceContent(item: IngestItem) {
 function formatCitationEntityType(entityType: RagQueryResponse["citations"][number]["entityType"]) {
   const labels: Record<RagQueryResponse["citations"][number]["entityType"], string> = {
     position: "聚合仓位",
-    holding: "已确认记录",
+    holding: "已入库记录",
     holding_event: "确认事件",
     ingest_item: "来源资料",
     extraction_candidate: "解析候选"
@@ -451,12 +452,21 @@ export function App() {
 }
 
 function LandingPage({ onStart }: { onStart: () => void }) {
+  const [introDone, setIntroDone] = useState(false);
+
+  useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timer = window.setTimeout(() => setIntroDone(true), reduceMotion ? 900 : 4650);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   function scrollToExample() {
     document.getElementById("landing-example")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
     <main className="landing-shell">
+      {!introDone && <LandingIntro onSkip={() => setIntroDone(true)} />}
       <nav className="landing-nav" aria-label="官网导航">
         <div className="landing-brand">
           <span>持仓图谱</span>
@@ -472,15 +482,12 @@ function LandingPage({ onStart }: { onStart: () => void }) {
 
       <section className="landing-hero">
         <LandingMarketBackdrop />
-        <LandingSignalFlow />
         <div className="landing-hero-copy">
-          <span className="landing-kicker">Research attention map</span>
+          <span className="landing-kicker">Portfolio intelligence</span>
           <h1>
-            整理投资资料，
-            <br />
-            提取标的主线。
+            市场信息，变成持仓判断。
           </h1>
-          <p>粘贴资料，提取标的、观点和来源。</p>
+          <p>粘贴研报、帖子和笔记，提取标的、观点和来源。</p>
           <div className="landing-actions">
             <button className="landing-primary" onClick={onStart} type="button">开始使用</button>
             <button className="landing-secondary" onClick={scrollToExample} type="button">查看示例</button>
@@ -491,69 +498,126 @@ function LandingPage({ onStart }: { onStart: () => void }) {
       </section>
 
       <section className="landing-proof-strip" aria-label="产品边界">
-        <span>公开 Demo</span>
-        <span>信息来源可追溯</span>
-        <span>不做买卖建议</span>
+        <span>公开 Demo 可试用</span>
+        <span>每条结论保留来源</span>
+        <span>只整理资料，不做买卖建议</span>
       </section>
 
-      <section className="landing-feature-grid" id="landing-features">
-        <div>
-          <span>01</span>
-          <strong>放进资料</strong>
-          <p>研报、帖子、公告和笔记，统一放进来。</p>
-        </div>
-        <div>
-          <span>02</span>
-          <strong>识别标的</strong>
-          <p>确认系统识别出的标的代码、观点和来源。</p>
-        </div>
-        <div>
-          <span>03</span>
-          <strong>形成主线</strong>
-          <p>看见注意力集中在哪些标的和主题上。</p>
-        </div>
-        <div>
-          <span>04</span>
-          <strong>回到依据</strong>
-          <p>从主线跳回原文，复查每个判断从何而来。</p>
-        </div>
-      </section>
-
-      <section className="landing-example" id="landing-example">
-        <div className="landing-section-copy">
-          <h2>
-            看见注意力，
-            <br />
-            正在向哪里集中。
-          </h2>
-          <p>从零散资料里提炼出重点标的、观点变化和可回溯依据。</p>
-        </div>
-        <div className="landing-example-board">
-          <div className="landing-example-card primary">
-            <span>注意力主线</span>
-            <strong>AMD · BTC · ETH</strong>
-            <p>先看资料反复指向哪些名字。</p>
-          </div>
-          <div className="landing-example-card">
-            <span>原始依据</span>
-            <strong>13F sector memo</strong>
-            <p>每条记录保留来源、摘要和录入时间。</p>
-          </div>
-          <div className="landing-example-card">
-            <span>继续追问</span>
-            <strong>“目前怎么看 AMD？”</strong>
-            <p>回答引用资料库内容，方便继续核对。</p>
-          </div>
-        </div>
-      </section>
+      <LandingCaseDashboard />
 
       <section className="landing-final-cta">
         <span>从第一条资料开始</span>
-        <h2>把看过的资料，整理成可追溯的标的主线。</h2>
-        <p>先录入并确认识别结果；资料多起来后，系统会自动呈现值得继续追踪的方向。</p>
+        <h2>把市场信息整理成持仓判断。</h2>
+        <p>先导入资料；系统整理完成后，重点标的和观点变化会自然浮现。</p>
         <button onClick={onStart} type="button">开始使用</button>
       </section>
     </main>
+  );
+}
+
+const landingIntroFragments = [
+  { type: "social", text: "TSLA margins keep compressing", x: "-18%", y: "8%", dx: "49vw", dy: "24vh", rotate: "-14deg" },
+  { type: "report", text: "Q3 Semiconductor Fund Letter", x: "12%", y: "-18%", dx: "33vw", dy: "36vh", rotate: "9deg" },
+  { type: "ticker", text: "$AMD · add on weakness", x: "82%", y: "-12%", dx: "-34vw", dy: "35vh", rotate: "-8deg" },
+  { type: "social", text: "BTC ETF flows rebound", x: "108%", y: "12%", dx: "-47vw", dy: "25vh", rotate: "13deg" },
+  { type: "report", text: "AI infra capex revision", x: "-16%", y: "34%", dx: "42vw", dy: "8vh", rotate: "7deg" },
+  { type: "ticker", text: "NVDA supply chain note", x: "102%", y: "42%", dx: "-43vw", dy: "3vh", rotate: "-11deg" },
+  { type: "social", text: "ETH fees normalize again", x: "4%", y: "112%", dx: "36vw", dy: "-42vh", rotate: "-10deg" },
+  { type: "report", text: "13F sector memo · semis", x: "72%", y: "112%", dx: "-25vw", dy: "-43vh", rotate: "8deg" },
+  { type: "ticker", text: "BTC · risk asset core", x: "-20%", y: "68%", dx: "48vw", dy: "-14vh", rotate: "15deg" },
+  { type: "social", text: "Cloudflare usage thread", x: "108%", y: "72%", dx: "-48vw", dy: "-15vh", rotate: "-13deg" },
+  { type: "report", text: "Macro letter: duration risk", x: "28%", y: "-16%", dx: "14vw", dy: "39vh", rotate: "-6deg" },
+  { type: "ticker", text: "AAPL services margin", x: "56%", y: "-18%", dx: "-6vw", dy: "41vh", rotate: "12deg" },
+  { type: "social", text: "MSTR premium widening", x: "-17%", y: "52%", dx: "42vw", dy: "-2vh", rotate: "-8deg" },
+  { type: "report", text: "Digital assets allocation note", x: "112%", y: "55%", dx: "-47vw", dy: "-4vh", rotate: "10deg" },
+  { type: "ticker", text: "SMH · watch concentration", x: "22%", y: "116%", dx: "18vw", dy: "-45vh", rotate: "6deg" },
+  { type: "social", text: "META ad load recovery", x: "94%", y: "106%", dx: "-35vw", dy: "-38vh", rotate: "-7deg" },
+  { type: "report", text: "Personal note: hedge sizing", x: "-12%", y: "22%", dx: "34vw", dy: "18vh", rotate: "11deg" },
+  { type: "ticker", text: "ETH · ecosystem watch", x: "112%", y: "28%", dx: "-39vw", dy: "15vh", rotate: "-15deg" }
+];
+
+const landingIntroMicroSignals = [
+  "AMD", "BTC", "ETH", "NVDA", "TSLA", "AAPL", "META", "SMH",
+  "AI capex", "ETF flow", "margin risk", "13F update", "macro note", "fund letter", "KOL thread", "earnings call",
+  "rate path", "chain fees", "semis", "cloud spend", "hedge sizing", "position note", "source link", "watchlist",
+  "MSTR", "GOOGL", "MSFT", "NET", "risk asset", "cash flow", "revision", "volume spike",
+  "PMI", "CPI", "duration", "liquidity", "supply chain", "guidance", "valuation", "drawdown",
+  "sector memo", "personal note", "forum post", "filing", "Q3 letter", "sell-side", "on-chain", "factor tilt",
+  "sentiment", "support", "resistance", "rotation", "quality", "growth", "beta", "exposure",
+  "upgrade", "downgrade", "buyback", "revenue mix", "gross margin", "position size", "conviction", "portfolio"
+];
+
+const landingIntroThreads = ["AMD", "BTC", "ETH", "AI Infra"];
+
+function LandingIntro({ onSkip }: { onSkip: () => void }) {
+  return (
+    <section className="landing-intro" aria-label="信息流整理动画">
+      <div className="landing-intro-noise" aria-hidden="true" />
+      <div className="landing-intro-lanes" aria-hidden="true">
+        {Array.from({ length: 7 }).map((_, index) => (
+          <span key={index} style={{ "--lane-index": index } as CSSProperties} />
+        ))}
+      </div>
+      <div className="landing-intro-micro" aria-hidden="true">
+        {landingIntroMicroSignals.map((signal, index) => {
+          const x = ((index * 17) % 116) - 8;
+          const y = ((index * 29) % 112) - 6;
+          return (
+            <span
+              className="intro-micro"
+              key={`${signal}-${index}`}
+              style={{
+                "--micro-delay": `${index * 18}ms`,
+                "--micro-x": `${x}%`,
+                "--micro-y": `${y}%`,
+                "--micro-dx": `${50 - x}vw`,
+                "--micro-dy": `${48 - y}vh`
+              } as CSSProperties}
+            >
+              {signal}
+            </span>
+          );
+        })}
+      </div>
+      <div className="landing-intro-fragments" aria-hidden="true">
+        {landingIntroFragments.map((fragment, index) => (
+          <span
+            className={`intro-fragment ${fragment.type}`}
+            key={`${fragment.type}-${fragment.text}`}
+            style={{
+              "--intro-delay": `${index * 48}ms`,
+              "--intro-x": fragment.x,
+              "--intro-y": fragment.y,
+              "--intro-dx": fragment.dx,
+              "--intro-dy": fragment.dy,
+              "--intro-rotate": fragment.rotate
+            } as CSSProperties}
+          >
+            {fragment.text}
+          </span>
+        ))}
+      </div>
+      <div className="landing-intro-core" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </div>
+      <div className="landing-intro-copy">
+        <span>Portfolio intelligence</span>
+        <strong>
+          <span>市场信息</span>
+          <span>整理成判断</span>
+        </strong>
+      </div>
+      <div className="landing-intro-threads" aria-hidden="true">
+        {landingIntroThreads.map((thread, index) => (
+          <b key={thread} style={{ "--thread-delay": `${3450 + index * 110}ms` } as CSSProperties}>
+            {thread}
+          </b>
+        ))}
+      </div>
+      <button className="landing-intro-skip" onClick={onSkip} type="button">跳过</button>
+    </section>
   );
 }
 
@@ -589,49 +653,233 @@ function LandingMarketBackdrop() {
   );
 }
 
-function LandingSignalFlow() {
-  return (
-    <div className="landing-signal-flow" aria-hidden="true">
-      <span className="flow-node node-a">研报</span>
-      <span className="flow-node node-b">帖子</span>
-      <span className="flow-node node-c">笔记</span>
-      <span className="flow-node node-d">公告</span>
-      <span className="flow-node node-core">结构</span>
-      <i className="flow-line line-a" />
-      <i className="flow-line line-b" />
-      <i className="flow-line line-c" />
-      <i className="flow-pulse pulse-a" />
-      <i className="flow-pulse pulse-b" />
-    </div>
-  );
-}
-
 const landingPreviewSignals = [
   {
     ticker: "AMD",
-    percent: "11.1%",
+    company: "Advanced Micro Devices",
+    percent: "34%",
     action: "加仓",
     source: "13F sector memo",
-    summary: "半导体资料被反复提到，进入重点观察。",
+    evidence: "6 条资料",
+    summary: "半导体资料多次指向同一条主线。",
     color: "#c8d4df"
   },
   {
     ticker: "BTC",
-    percent: "11.1%",
+    company: "Bitcoin",
+    percent: "28%",
     action: "持有",
     source: "KOL macro thread",
-    summary: "多条资料把 BTC 作为风险资产核心持有。",
+    evidence: "5 条资料",
+    summary: "宏观帖子反复把 BTC 放在风险资产核心。",
     color: "#8fc6d8"
   },
   {
     ticker: "ETH",
-    percent: "11.1%",
+    company: "Ethereum",
+    percent: "18%",
     action: "持有",
     source: "personal note",
-    summary: "链上与费用主题被整理为继续观察。",
+    evidence: "3 条资料",
+    summary: "链上费用和生态变化进入继续观察。",
     color: "#d8b76d"
   }
 ];
+
+const landingCaseInputs = [
+  {
+    source: "基金信",
+    title: "Q3 Semiconductor Letter",
+    ticker: "AMD",
+    tone: "偏多",
+    time: "09:12",
+    summary: "AI 服务器需求上修，等待估值回落后加仓。"
+  },
+  {
+    source: "帖子",
+    title: "BTC ETF flow thread",
+    ticker: "BTC",
+    tone: "持有",
+    time: "10:34",
+    summary: "资金流入恢复，仍作为风险资产核心观察。"
+  },
+  {
+    source: "笔记",
+    title: "ETH ecosystem watch",
+    ticker: "ETH",
+    tone: "观察",
+    time: "13:20",
+    summary: "费用下降后生态活跃度改善，但仓位暂不加。"
+  },
+  {
+    source: "公告",
+    title: "Data center capex update",
+    ticker: "AMD",
+    tone: "偏多",
+    time: "15:48",
+    summary: "云厂商资本开支继续指向 AI Infra。"
+  }
+];
+
+const landingCaseTickers = [
+  {
+    ticker: "AMD",
+    name: "Advanced Micro Devices",
+    count: 6,
+    stance: "偏多",
+    action: "观察加仓",
+    sourceMix: "基金信 / 公告 / 笔记",
+    change: "AI Infra 资料连续两次提到 AMD，关注度上升。",
+    nextQuestion: "为什么 AMD 最近被反复提到？",
+    width: "88%"
+  },
+  {
+    ticker: "BTC",
+    name: "Bitcoin",
+    count: 5,
+    stance: "持有",
+    action: "继续观察",
+    sourceMix: "帖子 / 宏观笔记",
+    change: "ETF flow 与风险偏好修复同时出现。",
+    nextQuestion: "BTC 的持有依据有哪些？",
+    width: "72%"
+  },
+  {
+    ticker: "ETH",
+    name: "Ethereum",
+    count: 3,
+    stance: "观察",
+    action: "暂不动作",
+    sourceMix: "个人笔记 / 链上观察",
+    change: "生态活跃度改善，但资料强度低于 AMD/BTC。",
+    nextQuestion: "ETH 还缺哪些确认信号？",
+    width: "46%"
+  }
+];
+
+function LandingCaseDashboard() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeTicker = landingCaseTickers[activeIndex];
+
+  useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return;
+
+    const timer = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % landingCaseTickers.length);
+    }, 2600);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return (
+    <section className="landing-case-section" id="landing-example" aria-label="Demo 投研工作台快照">
+      <div className="landing-case-copy">
+        <span>Demo workspace</span>
+        <h2>示例资料整理后，会看到什么。</h2>
+        <p>标的、观点、来源和变化会被放到同一张工作台里。</p>
+      </div>
+      <div className="landing-case-dashboard">
+        <div className="landing-case-top">
+          <span>Research snapshot</span>
+          <strong>18 条资料 · 3 条标的主线 · 4 类来源</strong>
+        </div>
+        <div className="landing-case-grid">
+          <section className="landing-case-pane source-feed">
+            <div className="landing-case-pane-header">
+              <span>资料输入流</span>
+              <strong>自动整理</strong>
+            </div>
+            <div className="landing-case-source-list">
+              {landingCaseInputs.map((item, index) => (
+                <article
+                  className={item.ticker === activeTicker.ticker ? "active" : undefined}
+                  key={`${item.source}-${item.title}`}
+                  style={{ "--case-row-delay": `${index * 90}ms` } as CSSProperties}
+                >
+                  <div>
+                    <span>{item.source}</span>
+                    <strong>{item.title}</strong>
+                  </div>
+                  <em>{item.time}</em>
+                  <b>{item.ticker}</b>
+                  <p>{item.summary}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="landing-case-pane ticker-lines">
+            <div className="landing-case-pane-header">
+              <span>标的主线</span>
+              <strong>按资料强度</strong>
+            </div>
+            <div className="landing-case-ticker-table">
+              <div className="landing-case-table-head" aria-hidden="true">
+                <span>Ticker</span>
+                <span>观点</span>
+                <span>动作</span>
+                <span>资料</span>
+              </div>
+              {landingCaseTickers.map((item, index) => (
+                <button
+                  className={index === activeIndex ? "active" : undefined}
+                  key={item.ticker}
+                  onClick={() => setActiveIndex(index)}
+                  type="button"
+                >
+                  <span>
+                    <strong>{item.ticker}</strong>
+                    <em>{item.name}</em>
+                  </span>
+                  <b>{item.stance}</b>
+                  <i>{item.action}</i>
+                  <small>{item.count} 条</small>
+                  <mark style={{ "--case-bar-width": item.width } as CSSProperties} />
+                </button>
+              ))}
+            </div>
+            <div className="landing-case-mini-viz" aria-hidden="true">
+              <span style={{ "--viz-width": "74%" } as CSSProperties}>基金信</span>
+              <span style={{ "--viz-width": "58%" } as CSSProperties}>帖子</span>
+              <span style={{ "--viz-width": "42%" } as CSSProperties}>笔记</span>
+            </div>
+          </section>
+
+          <aside className="landing-case-pane decision-pane" key={activeTicker.ticker}>
+            <div className="landing-case-pane-header">
+              <span>持仓参考</span>
+              <strong>{activeTicker.ticker}</strong>
+            </div>
+            <div className="landing-case-decision">
+              <span>重点变化</span>
+              <strong>{activeTicker.change}</strong>
+              <p>来源：{activeTicker.sourceMix}</p>
+            </div>
+            <div className="landing-case-kpis">
+              <div>
+                <span>资料数</span>
+                <strong>{activeTicker.count}</strong>
+              </div>
+              <div>
+                <span>观点</span>
+                <strong>{activeTicker.stance}</strong>
+              </div>
+              <div>
+                <span>动作</span>
+                <strong>{activeTicker.action}</strong>
+              </div>
+            </div>
+            <div className="landing-case-question">
+              <span>下一步可问</span>
+              <strong>{activeTicker.nextQuestion}</strong>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function LandingProductPreview() {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -651,46 +899,64 @@ function LandingProductPreview() {
   return (
     <div className="landing-product-preview" aria-label="产品示例预览">
       <div className="landing-preview-top">
-        <span>注意力主线</span>
-        <strong>12 个标的 · 18 条资料</strong>
+        <span>Product preview</span>
+        <strong>18 条资料已整理</strong>
       </div>
       <div className="landing-preview-body">
-        <div className="landing-preview-donut">
-          <svg viewBox="0 0 180 180" role="img">
-            <title>示例 ticker 分布</title>
-            <circle cx="90" cy="90" r="58" />
-            {[0, 1, 2, 3, 4, 5].map((index) => {
-              const startAngle = [0, 46, 92, 138, 202, 270][index];
-              const endAngle = [46, 92, 138, 202, 270, 360][index];
-              return (
-                <path
-                  className={index === activeIndex ? "active" : undefined}
-                  d={describeArc(90, 90, 58, startAngle, endAngle)}
-                  key={index}
-                />
-              );
-            })}
-          </svg>
-          <div key={activeSignal.ticker}>
-            <strong>{activeSignal.percent}</strong>
-            <span>{activeSignal.ticker}</span>
+        <div className="landing-map-stage">
+          <div className="landing-preview-donut">
+            <svg viewBox="0 0 180 180" role="img">
+              <title>示例标的注意力分布</title>
+              <circle cx="90" cy="90" r="58" />
+              {[0, 1, 2, 3, 4, 5].map((index) => {
+                const startAngle = [0, 122, 223, 288, 322, 342][index];
+                const endAngle = [122, 223, 288, 322, 342, 360][index];
+                return (
+                  <path
+                    className={index === activeIndex ? "active" : undefined}
+                    d={describeArc(90, 90, 58, startAngle, endAngle)}
+                    key={index}
+                  />
+                );
+              })}
+            </svg>
+            <div key={activeSignal.ticker}>
+              <strong>{activeSignal.percent}</strong>
+              <span>{activeSignal.ticker}</span>
+            </div>
+          </div>
+          <div className="landing-map-lines" aria-hidden="true">
+            {["研报", "帖子", "笔记", "公告", "基金信"].map((label, index) => (
+              <span key={label} style={{ "--flow-index": index } as CSSProperties}>{label}</span>
+            ))}
           </div>
         </div>
-        <div className="landing-preview-stack">
-          <div className="active">
-            <span>当前标的</span>
+        <div className="landing-preview-rail">
+          <div className="landing-active-brief" key={activeSignal.ticker}>
+            <span>{activeSignal.company}</span>
             <strong>{activeSignal.ticker} · {activeSignal.action}</strong>
-            <em>{activeSignal.source}</em>
+            <p>{activeSignal.summary}</p>
           </div>
-          <div>
-            <span>主线摘要</span>
-            <strong>{activeSignal.summary}</strong>
-            <em>updated with confirmed notes</em>
+          <div className="landing-preview-list">
+            {landingPreviewSignals.map((signal, index) => {
+              return (
+                <button
+                  className={index === activeIndex ? "active" : undefined}
+                  key={signal.ticker}
+                  onClick={() => setActiveIndex(index)}
+                  type="button"
+                >
+                  <i style={{ background: signal.color }} />
+                  <span>{signal.ticker}</span>
+                  <strong>{signal.evidence}</strong>
+                </button>
+              );
+            })}
           </div>
-          <div>
-            <span>可追溯依据</span>
-            <strong>打开资料库继续核对</strong>
-            <em>source linked</em>
+          <div className="landing-source-card">
+            <span>当前依据</span>
+            <strong>{activeSignal.source}</strong>
+            <em>source linked · 可回溯</em>
           </div>
         </div>
       </div>
@@ -789,7 +1055,7 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
 
   const title = useMemo(() => {
     if (view === "distribution") return "分布分析 / Ticker Distribution";
-    if (view === "ingest") return "录入 / 资料确认队列";
+    if (view === "ingest") return "录入 / 导入中心";
     if (view === "library") return "标的资料库 / Ticker Library";
     if (view === "rag") return "问投研资料 / Evidence-grounded Answers";
     if (view === "settings") return "账户与数据";
@@ -804,10 +1070,10 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
         <div className="account-label" title={accountLabel}>{accountLabel}</div>
       </header>
 
-      <section className="ticker-strip" aria-label="已确认资料 ticker">
+      <section className="ticker-strip" aria-label="已入库资料 ticker">
         {portfolioPositions.length === 0 ? (
           <div className="ticker-item empty-strip">
-            <span>暂无已确认资料形成的标的倾向</span>
+            <span>暂无已入库资料形成的标的倾向</span>
           </div>
         ) : portfolioPositions.slice(0, 8).map((position) => (
           <button
@@ -874,7 +1140,7 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
               focusedIngestId={focusedIngestId}
               onAccepted={(ticker) => {
                 setLibraryFocusTicker(ticker);
-                setView("library");
+                setPortfolioReloadKey((current) => current + 1);
               }}
             />
           )}
@@ -1050,7 +1316,7 @@ function RagView({
         {
           id: `assistant-error-${Date.now()}`,
           role: "assistant",
-          content: "结论：\n这次没有完成查询。\n\n需要复核：\n查询服务或网络可能暂时不可用，这不代表你整理的资料里没有相关记录。\n\n可继续追问：\n稍后重试，或先切换到标的资料库查看已确认记录。"
+          content: "结论：\n这次没有完成查询。\n\n需要复核：\n查询服务或网络可能暂时不可用，这不代表你整理的资料里没有相关记录。\n\n可继续追问：\n稍后重试，或先切换到标的资料库查看已入库记录。"
         }
       ]);
       setStatus("查询失败，可稍后重试");
@@ -1063,13 +1329,13 @@ function RagView({
   const followUpSuggestions = getFollowUpSuggestions(latestAssistant);
 
   return (
-    <div className="rag-grid">
-      <section className="panel rag-query-panel">
+    <div className="workspace-split rag-grid">
+      <section className="workspace-section panel rag-query-panel">
         <div className="panel-header">
           <span>问投研资料</span>
           <strong>{status}</strong>
         </div>
-        <p className="rag-boundary">回答只使用你已经录入并确认的投研资料；没有依据时会直接说明资料不足，不补外部行情或投资建议。</p>
+        <p className="rag-boundary">回答只使用已入库的投研资料；没有依据时会直接说明资料不足，不补外部行情或投资建议。</p>
         <div className="rag-suggestion-list" aria-label="常用问题">
           {suggestedQueries.map((suggestion) => (
             <button key={suggestion} onClick={() => setQuery(suggestion)} type="button">
@@ -1089,7 +1355,7 @@ function RagView({
           <textarea
             className="terminal-textarea"
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="围绕已确认资料连续追问，例如：为什么会关注 SMH？"
+            placeholder="围绕已入库资料连续追问，例如：为什么会关注 SMH？"
             value={query}
           />
           <button className="save-button" disabled={isLoading} type="submit">
@@ -1098,7 +1364,7 @@ function RagView({
         </form>
       </section>
 
-      <section className="panel rag-chat-panel">
+      <section className="workspace-section panel rag-chat-panel">
         <div className="panel-header">
           <span>对话</span>
           <strong>
@@ -1129,7 +1395,7 @@ function RagView({
         )}
       </section>
 
-      <section className="panel rag-citations-panel">
+      <section className="rail-list panel rag-citations-panel">
         <div className="panel-header">
           <span>本轮证据</span>
           <strong>{latestAssistant?.citations?.length ?? 0}</strong>
@@ -1137,13 +1403,13 @@ function RagView({
         {!latestAssistant?.citations || latestAssistant.citations.length === 0 ? (
           <div className="rag-empty-state">
             <strong>暂无命中证据</strong>
-            <p>可以先录入并确认相关资料，或把问题问得更具体。系统不会用你已整理资料以外的信息补答案。</p>
+            <p>可以先导入相关资料，或把问题问得更具体。系统不会用你已整理资料以外的信息补答案。</p>
           </div>
         ) : (
           <div className="citation-list">
             {latestAssistant.citations.map((citation) => (
               <button
-                className="citation-card"
+                className="data-row citation-card"
                 disabled={!citation.sourceIngestItemId}
                 key={citation.id}
                 onClick={() => citation.sourceIngestItemId && onOpenEvidence(citation.sourceIngestItemId)}
@@ -1186,11 +1452,11 @@ function DashboardView({
 
   return (
     <div className="home-page">
-      <section className="home-hero">
-        <div className="home-hero-copy">
+      <section className="workspace-split home-hero">
+        <div className="workspace-section home-hero-copy">
           <span>{publicDemoMode ? "Demo Research Workspace" : "Research Workspace"}</span>
           <h2>把分散的投研线索，整理成可追溯的标的图谱。</h2>
-          <p>粘贴研报、笔记或链接，确认解析出的 ticker 和动作后，系统会自动生成分布、证据链和可追问的资料库。</p>
+          <p>粘贴研报、笔记或链接，系统会自动提取 ticker、观点和来源，并生成分布、证据链和可追问的资料库。</p>
           <div className="home-hero-actions">
             <button className="primary-action" onClick={onOpenIngest} type="button">导入资料</button>
             <button className="secondary-action" onClick={onOpenDistribution} type="button">查看分布</button>
@@ -1198,7 +1464,7 @@ function DashboardView({
           <div className="home-trust-note">
             {publicDemoMode
               ? "当前为合成数据 Demo：不上传真实截图，不连接真实模型，不提供投资建议。"
-              : "文本与链接先进入确认队列，只有确认后的资料会进入分布和资料库。"}
+              : "系统自动整理资料；识别失败的内容会存档，不进入分布和持仓结论。"}
           </div>
         </div>
         <TickerDistributionPreviewCard
@@ -1209,36 +1475,36 @@ function DashboardView({
         />
       </section>
 
-      <section className="home-workflow" aria-label="资料生成分布流程">
-        <div className="home-workflow-card">
+      <section className="workspace-flow home-workflow" aria-label="资料生成分布流程">
+        <div className="data-row home-workflow-card">
           <span>01</span>
           <strong>粘贴文本或链接</strong>
           <p>把研报摘要、KOL 观点、个人笔记或公告链接放进录入队列。</p>
         </div>
-        <div className="home-workflow-card">
+        <div className="data-row home-workflow-card">
           <span>02</span>
-          <strong>确认候选信号</strong>
-          <p>人工确认 ticker、动作、来源和依据，避免未经确认的内容进入图谱。</p>
+          <strong>AI 自动整理</strong>
+          <p>系统提取 ticker、动作、来源和依据；无法识别的资料会自动存档。</p>
         </div>
-        <div className="home-workflow-card">
+        <div className="data-row home-workflow-card">
           <span>03</span>
           <strong>生成分布与证据链</strong>
-          <p>按已确认资料生成 ticker 频次占比，并连接到资料库和问答引用。</p>
+          <p>按已入库资料生成 ticker 频次占比，并连接到资料库和问答引用。</p>
         </div>
       </section>
 
-      <section className="home-entry-band">
+      <section className="workspace-section home-entry-band">
         <button onClick={onOpenIngest} type="button">
           <span>开始录入</span>
           <strong>从一段文本或一个链接开始</strong>
         </button>
         <button onClick={onOpenDistribution} type="button">
           <span>查看分布</span>
-          <strong>{frequency.slices[0] ? `${frequency.slices[0].label} 最高频` : "确认资料后自动生成"}</strong>
+          <strong>{frequency.slices[0] ? `${frequency.slices[0].label} 最高频` : "导入资料后自动生成"}</strong>
         </button>
         <button onClick={onOpenLibrary} type="button">
           <span>打开资料库</span>
-          <strong>{frequency.activePositions.length ? `${frequency.activePositions.length} 个标的可追溯` : "等待已确认资料"}</strong>
+          <strong>{frequency.activePositions.length ? `${frequency.activePositions.length} 个标的可追溯` : "等待已入库资料"}</strong>
         </button>
       </section>
     </div>
@@ -1308,7 +1574,7 @@ function TickerDistributionPreviewCard({
   let cursorAngle = 0;
 
   return (
-    <div className="home-preview-card">
+    <div className="workspace-preview-strip home-preview-card">
       <div className="home-preview-header">
         <span>Distribution Preview</span>
         <strong>{topSlice ? `${frequency.activePositions.length} 个标的` : "等待资料"}</strong>
@@ -1317,7 +1583,7 @@ function TickerDistributionPreviewCard({
         <div className={topSlice ? "home-mini-donut" : "home-mini-donut empty"} aria-label="Ticker 分布预览">
           {topSlice ? (
             <svg viewBox="0 0 180 180" role="img">
-              <title>已确认资料的 ticker 分布预览</title>
+              <title>已入库资料的 ticker 分布预览</title>
               <circle className="home-mini-donut-track" cx="90" cy="90" r="62" />
               {frequency.slices.slice(0, 6).map((slice) => {
                 const startAngle = cursorAngle;
@@ -1350,13 +1616,13 @@ function TickerDistributionPreviewCard({
           </div>
         </div>
         <div className="home-preview-copy">
-          <strong>{topSlice ? `${topSlice.label} 是当前最高频标的` : "确认资料后自动生成分布"}</strong>
+          <strong>{topSlice ? `${topSlice.label} 是当前最高频标的` : "导入资料后自动生成分布"}</strong>
           <p>
             {topSlice
-              ? `${frequency.totalHoldings} 条已确认资料会汇总为 ticker 占比，并能继续打开证据链。`
+              ? `${frequency.totalHoldings} 条已入库资料会汇总为 ticker 占比，并能继续打开证据链。`
               : dataStatus === "error"
-                ? "当前无法读取资料库。恢复连接后，确认资料会自动生成分布。"
-                : "先粘贴文本或链接，确认解析结果后，这里会出现真实 ticker 分布。"}
+                ? "当前无法读取资料库。恢复连接后，已入库资料会自动生成分布。"
+                : "先粘贴文本或链接，系统整理完成后，这里会出现真实 ticker 分布。"}
           </p>
         </div>
       </div>
@@ -1373,7 +1639,7 @@ function TickerDistributionPreviewCard({
       ) : (
         <div className="home-preview-steps">
           <span>1. 粘贴文本/链接</span>
-          <span>2. 确认 ticker 与动作</span>
+          <span>2. AI 整理 ticker 与动作</span>
           <span>3. 生成占比图</span>
         </div>
       )}
@@ -1423,17 +1689,17 @@ function TickerDistributionView({
         <div>
           <span>{publicDemoMode ? "Demo Distribution" : "Portfolio Distribution"}</span>
           <h2>看清资料集中在哪些标的。</h2>
-          <p>按已确认资料出现频次计算占比，帮助判断研究注意力是否过度集中、哪些 ticker 值得继续追踪。</p>
+          <p>按已入库资料出现频次计算占比，帮助判断研究注意力是否过度集中、哪些 ticker 值得继续追踪。</p>
         </div>
         <div className="distribution-summary">
-          <MetricCard label="标的数量" value={`${activePositions.length}`} detail={dataStatus === "api" ? "已确认资料" : dataStatus === "loading" ? "加载中" : "连接失败"} tone={activePositions.length ? "positive" : "neutral"} />
+          <MetricCard label="标的数量" value={`${activePositions.length}`} detail={dataStatus === "api" ? "已入库资料" : dataStatus === "loading" ? "加载中" : "连接失败"} tone={activePositions.length ? "positive" : "neutral"} />
           <MetricCard label="资料总数" value={`${totalHoldings}`} detail="用于占比计算" tone="neutral" />
-          <MetricCard label="最高频" value={slices[0]?.label ?? "暂无"} detail={slices[0] ? `${slices[0].value} 条资料` : "等待确认"} tone={slices[0] ? "positive" : "neutral"} />
+          <MetricCard label="最高频" value={slices[0]?.label ?? "暂无"} detail={slices[0] ? `${slices[0].value} 条资料` : "等待入库"} tone={slices[0] ? "positive" : "neutral"} />
         </div>
       </section>
 
       {slices.length === 0 || !selectedSlice ? (
-        <section className="panel distribution-empty-panel">
+        <section className="workspace-section panel distribution-empty-panel">
           <div className="panel-header">
             <span>Ticker 频次分布</span>
             <strong>{dataStatus === "loading" ? "加载中" : "等待资料"}</strong>
@@ -1445,11 +1711,11 @@ function TickerDistributionView({
               <span />
             </div>
             <div>
-              <h3>先确认资料，再生成分布。</h3>
-              <p>{dataStatus === "error" ? "当前无法读取资料库。恢复连接后，已确认资料会在这里生成 ticker 占比。" : "粘贴文本或链接后，确认解析出的 ticker、动作和来源，系统会自动把已确认资料汇总成分布图。"}</p>
+              <h3>先导入资料，再生成分布。</h3>
+              <p>{dataStatus === "error" ? "当前无法读取资料库。恢复连接后，已入库资料会在这里生成 ticker 占比。" : "粘贴文本或链接后，系统会自动整理 ticker、动作和来源，并汇总成分布图。"}</p>
               <ol>
                 <li>粘贴研报、笔记或链接</li>
-                <li>确认候选 ticker 与动作</li>
+                <li>AI 整理 ticker 与动作</li>
                 <li>查看占比、排行和证据链</li>
               </ol>
               <button className="panel-link-button" onClick={onOpenIngest} type="button">去录入资料</button>
@@ -1457,8 +1723,8 @@ function TickerDistributionView({
           </div>
         </section>
       ) : (
-        <section className="distribution-layout">
-          <div className="panel distribution-chart-panel">
+        <section className="workspace-split distribution-layout">
+          <div className="workspace-section panel distribution-chart-panel">
             <div className="panel-header">
               <span>Ticker 频次分布</span>
               <strong>{`${activePositions.length} 个标的 · ${totalHoldings} 条资料`}</strong>
@@ -1530,13 +1796,13 @@ function TickerDistributionView({
                 </div>
               </div>
 
-              <div className="distribution-selected-card" key={`detail-${selectedSlice.ticker}`} style={{ "--selected-color": selectedSlice.color } as CSSProperties}>
+              <div className="detail-pane distribution-selected-card" key={`detail-${selectedSlice.ticker}`} style={{ "--selected-color": selectedSlice.color } as CSSProperties}>
                 <TickerBrandBadge slice={selectedSlice} />
                 <div className="distribution-selected-copy">
                   <span>{selectedSlice.isOther ? "汇总分组" : selectedBrand?.name}</span>
                   <strong>{selectedSlice.label}</strong>
                   <p>
-                    {selectedSlice.value} 条已确认资料，占全部确认资料 {(selectedSlice.percent * 100).toFixed(1)}%。
+                    {selectedSlice.value} 条已入库资料，占全部入库资料 {(selectedSlice.percent * 100).toFixed(1)}%。
                     {selectedSlice.isOther ? "该分组只用于汇总小份额标的。" : "可以打开资料库查看对应证据链。"}
                   </p>
                 </div>
@@ -1554,7 +1820,7 @@ function TickerDistributionView({
             </div>
           </div>
 
-          <aside className="panel distribution-rank-panel">
+          <aside className="rail-list panel distribution-rank-panel">
             <div className="panel-header">
               <span>Ticker 排行</span>
               <strong>按资料频次</strong>
@@ -1730,7 +1996,7 @@ function TickerLibraryView({
 
   async function handleArchiveTicker(ticker: string, tickerHoldings: HoldingRecord[]) {
     if (tickerHoldings.length === 0 || archivingTicker) return;
-    const confirmed = window.confirm(`确认将 ${ticker} 的 ${tickerHoldings.length} 条已确认资料移出资料库吗？原始录入记录会保留，可在账户导出中追溯。`);
+    const confirmed = window.confirm(`确认将 ${ticker} 的 ${tickerHoldings.length} 条已入库资料移出资料库吗？原始录入记录会保留，可在账户导出中追溯。`);
 
     if (!confirmed) return;
 
@@ -1750,12 +2016,12 @@ function TickerLibraryView({
 
   if (!hasAnyTicker) {
     return (
-      <section className="panel library-empty-panel">
+      <section className="workspace-section panel library-empty-panel">
         <div className="panel-header">
           <span>标的资料库</span>
           <strong>{dataStatus === "api" ? "API 实时" : dataStatus === "loading" ? "加载中" : "连接失败"}</strong>
         </div>
-        <p className="empty-state">{dataStatus === "error" ? "无法读取资料库，请检查服务状态后重试。" : "资料库里还没有已确认标的。先录入资料并加入资料库后，这里会按 ticker 聚合展示。"}</p>
+        <p className="empty-state">{dataStatus === "error" ? "无法读取资料库，请检查服务状态后重试。" : "资料库里还没有已入库标的。先导入资料，系统会自动整理并按 ticker 聚合展示。"}</p>
         <button className="panel-link-button" onClick={onOpenIngest} type="button">去录入资料</button>
       </section>
     );
@@ -1763,7 +2029,7 @@ function TickerLibraryView({
 
   return (
     <>
-      <section className="panel library-filter-panel">
+      <section className="workspace-section panel library-filter-panel">
         <div className="panel-header">
           <span>筛选资料库</span>
           <strong>{visibleTickers.length} 个标的 · {filteredHoldings.length} 条资料</strong>
@@ -1809,7 +2075,7 @@ function TickerLibraryView({
       </section>
 
       {visibleTickers.length === 0 ? (
-        <section className="panel library-empty-panel">
+        <section className="workspace-section panel library-empty-panel">
           <div className="panel-header">
             <span>没有匹配资料</span>
             <strong>调整筛选</strong>
@@ -1818,8 +2084,8 @@ function TickerLibraryView({
           <button className="panel-link-button" onClick={resetFilters} type="button">清除筛选</button>
         </section>
       ) : (
-        <>
-          <div className="library-grid">
+        <div className="workspace-split library-browser">
+          <div className="rail-list library-grid">
             {visibleTickers.map((ticker) => {
               const position = activePositions.find((item) => item.ticker === ticker);
               const tickerHoldings = filteredHoldings.filter((holding) => holding.ticker === ticker);
@@ -1847,7 +2113,7 @@ function TickerLibraryView({
               );
             })}
           </div>
-          {recordsTicker && (
+          {recordsTicker ? (
             <TickerRecordsPanel
               events={recordsEvents}
               holdings={recordsHoldings}
@@ -1859,8 +2125,16 @@ function TickerLibraryView({
               position={recordsPosition}
               ticker={recordsTicker}
             />
+          ) : (
+            <section className="detail-pane panel ticker-records-panel library-records-placeholder">
+              <div className="panel-header">
+                <span>记录详情</span>
+                <strong>选择一个 ticker</strong>
+              </div>
+              <p className="empty-state">从左侧 ticker index 选择标的，查看已入库资料、最近动作和原始依据。</p>
+            </section>
           )}
-        </>
+        </div>
       )}
     </>
   );
@@ -1895,10 +2169,10 @@ function TickerSummaryCard({
     ? hideConfidenceText(latestEvent.summary)
     : latestHolding
       ? `${sourceDisplayName(latestHolding)} · ${formatSourceType(latestHolding.sourceType)}`
-      : "暂无已确认资料。";
+      : "暂无已入库资料。";
 
   return (
-    <section className={isSelected ? "panel ticker-card selected" : "panel ticker-card"}>
+    <section className={isSelected ? "data-row panel ticker-card selected" : "data-row panel ticker-card"}>
       <div className="panel-header">
         <span>{ticker}</span>
         <strong>{position?.netStance ?? "待聚合"}</strong>
@@ -1980,7 +2254,7 @@ function TickerRecordsPanel({
   const visibleHoldings = filteredHoldings.slice(0, limit);
 
   return (
-    <section className="panel ticker-records-panel">
+    <section className="detail-pane panel ticker-records-panel">
       <div className="panel-header">
         <span>{ticker} 记录</span>
         <strong>{filteredHoldings.length}/{holdings.length} 条资料 · {position?.netStance ?? "待聚合"}</strong>
@@ -2025,7 +2299,7 @@ function TickerRecordsPanel({
       </div>
       <div className="ticker-record-list">
         {visibleHoldings.length === 0 ? (
-          <p className="empty-state">当前筛选下没有这个标的的已确认资料。</p>
+          <p className="empty-state">当前筛选下没有这个标的的已入库资料。</p>
         ) : (
           visibleHoldings.map((holding) => (
             <TickerRecordRow
@@ -2246,6 +2520,9 @@ function IngestView({
   const [editPublishedAt, setEditPublishedAt] = useState("");
   const [editReportingPeriod, setEditReportingPeriod] = useState("");
   const selected = items.find((item) => item.id === selectedId) ?? items[0];
+  const acceptedItems = items.filter((item) => item.status === "已接受");
+  const archivedItems = items.filter((item) => item.status === "已存档");
+  const activeItems = items.filter((item) => item.status !== "已驳回");
 
   useEffect(() => {
     if (!focusedIngestId) return;
@@ -2282,6 +2559,15 @@ function IngestView({
 
   function prependItem(nextItem: IngestItem) {
     setItems((currentItems) => [nextItem, ...currentItems]);
+    setSelectedId(nextItem.id);
+  }
+
+  function upsertItem(nextItem: IngestItem) {
+    setItems((currentItems) => {
+      const exists = currentItems.some((item) => item.id === nextItem.id);
+      if (!exists) return [nextItem, ...currentItems];
+      return currentItems.map((item) => (item.id === nextItem.id ? nextItem : item));
+    });
     setSelectedId(nextItem.id);
   }
 
@@ -2408,17 +2694,54 @@ function IngestView({
         ? await updateIngestItem(createdItem.id, { ...buildNewSourceMetadata(), status: "待复核" })
         : createdItem;
       prependItem(item);
-      setStatusText(`${item.id} 已进入待复核队列`);
+      setStatusText(`${item.id} 已导入，正在自动解析`);
       setLinkValue("");
       setTextValue("");
       setSelectedImageFile(null);
       setNewSourceName("");
       setNewPublishedAt("");
       setNewReportingPeriod("");
+
+      await autoProcessIngestItem(item);
     } catch {
       setStatusText("新增录入失败，请确认后端服务状态");
     } finally {
       setIsMutating(false);
+    }
+  }
+
+  async function autoProcessIngestItem(item: IngestItem) {
+    try {
+      setStatusText(`${item.id} 正在识别标的、观点和来源`);
+      const extractedItem = await extractIngestItem(item.id);
+      upsertItem(extractedItem);
+      const candidates = await fetchExtractionCandidates(item.id);
+      setExtractionCandidates(candidates);
+
+      try {
+        const acceptedItem = await acceptIngestItem(item.id);
+        upsertItem(acceptedItem);
+        const acceptedCount = candidates.filter((candidate) => isValidEditableTicker(candidate.ticker)).length;
+        setStatusText(acceptedCount > 1
+          ? `${item.id} 已自动入库 ${acceptedCount} 条标的信号`
+          : `${item.id} 已自动入库`
+        );
+        onAccepted((acceptedItem.extractedTicker ?? acceptedItem.ticker).toUpperCase());
+      } catch {
+        const archivedItem = await updateIngestItem(item.id, {
+          status: "已存档",
+          extractionSummary: extractedItem.extractionSummary ?? "AI 未识别出明确可入库 ticker，原始资料已存档。"
+        });
+        upsertItem(archivedItem);
+        setStatusText(`${item.id} 未识别出明确标的，已存档`);
+      }
+    } catch {
+      const archivedItem = await updateIngestItem(item.id, {
+        status: "已存档",
+        extractionSummary: "AI 解析失败，原始资料已存档。"
+      });
+      upsertItem(archivedItem);
+      setStatusText(`${item.id} 解析失败，已存档`);
     }
   }
 
@@ -2583,11 +2906,12 @@ function IngestView({
   return (
     <div className="ingest-grid">
       <div className="ingest-list-column">
-        <section className="panel">
+        <section className="workspace-section panel ingest-import-panel">
           <div className="panel-header">
-            <span>新增录入</span>
-            <strong>{newIngestMode.toUpperCase()}</strong>
+            <span>导入中心</span>
+            <strong>AI 自动整理</strong>
           </div>
+          <p className="ingest-panel-copy">粘贴资料后系统会自动解析并入库；无法识别明确 ticker 的内容会保留为存档。</p>
           <form className="new-ingest-form" onSubmit={handleCreateIngestItem}>
             <div className="segmented-control">
               <button className={newIngestMode === "link" ? "active" : undefined} onClick={() => setNewIngestMode("link")} type="button">链接</button>
@@ -2655,28 +2979,44 @@ function IngestView({
                 <span>{selectedImageFile ? selectedImageFile.name : "选择图片文件"}</span>
               </label>
             )}
-            <button className="submit-ingest" disabled={isMutating} type="submit">加入队列</button>
+            <button className="submit-ingest" disabled={isMutating} type="submit">
+              {isMutating ? "正在整理..." : "导入并自动整理"}
+            </button>
           </form>
         </section>
 
-        <section className="panel">
+        <section className="rail-list panel ingest-results-panel">
           <div className="panel-header">
-            <span>待加入资料</span>
+            <span>最近导入</span>
             <strong>{statusText}</strong>
+          </div>
+          <div className="ingest-result-metrics">
+            <div>
+              <span>已入库</span>
+              <strong>{acceptedItems.length}</strong>
+            </div>
+            <div>
+              <span>已存档</span>
+              <strong>{archivedItems.length}</strong>
+            </div>
+            <div>
+              <span>总资料</span>
+              <strong>{activeItems.length}</strong>
+            </div>
           </div>
           <div className="queue-list">
             {items.length === 0 ? (
-              <p className="empty-state">暂无待处理记录。可以直接在上方新增资料。</p>
+              <p className="empty-state">暂无导入记录。可以直接在上方粘贴资料。</p>
             ) : (
               items.map((item) => (
                 <button
-                  className={item.id === selectedId ? "queue-item active" : "queue-item"}
+                  className={item.id === selectedId ? "data-row queue-item active" : "data-row queue-item"}
                   key={item.id}
                   onClick={() => setSelectedId(item.id)}
                   type="button"
                 >
                   <span>{item.id}</span>
-                  <strong>{item.ticker}</strong>
+                  <strong>{item.extractedTicker ?? item.ticker}</strong>
                   <em className={toneClass[ingestStatusTone[item.status]]}>{item.status}</em>
                 </button>
               ))
@@ -2685,10 +3025,13 @@ function IngestView({
         </section>
       </div>
 
-      <section className="panel review-panel">
-        <div className="panel-header">解析预览</div>
+      <section className="detail-pane panel review-panel">
+        <div className="panel-header">
+          <span>资料详情</span>
+          <strong>{selected ? selected.status : "等待导入"}</strong>
+        </div>
         {!selected ? (
-          <p className="empty-state">新增资料后会在这里显示解析预览、候选结果和加入资料库操作。</p>
+          <p className="empty-state">新增资料后会在这里显示 AI 整理结果、原始资料和纠错入口。</p>
         ) : (
           <>
             <div className="review-source">{sourceDisplayName(selected)} · {formatSourceType(selected.sourceType)} · {selected.kind}</div>
@@ -2704,14 +3047,16 @@ function IngestView({
               <p>{getUserFacingSourceSummary(selected)}</p>
             </div>
             <div className="field-grid">
-              <Field label="Ticker" value={selected.ticker} tone="positive" />
+              <Field label="Ticker" value={selected.extractedTicker ?? selected.ticker} tone={selected.status === "已存档" ? "neutral" : "positive"} />
               <Field label="Status" value={selected.status} tone={ingestStatusTone[selected.status]} />
               <Field label="识别动作" value={selected.extractedAction ?? "待解析"} tone={selected.extractedAction ? "warning" : "neutral"} />
               <Field label="资料结论" value={selected.extractionSummary ? hideConfidenceText(selected.extractionSummary) : "尚未解析"} tone={selected.extractionSummary ? "positive" : "neutral"} />
               <Field label="资料日期" value={selected.publishedAt ?? "待补充"} tone="neutral" />
               <Field label="报告期" value={selected.reportingPeriod ?? "不适用"} tone="neutral" />
-              <Field label="加入位置" value="标的资料库" tone="neutral" />
+              <Field label="进入分析" value={selected.status === "已接受" ? "已进入分布和资料库" : selected.status === "已存档" ? "仅保留原始资料" : "处理中"} tone={selected.status === "已接受" ? "positive" : "neutral"} />
             </div>
+            <details className="advanced-correction">
+              <summary>纠错与高级操作</summary>
             <div className="edit-grid">
               <label>
                 <span>来源主体</span>
@@ -2845,7 +3190,7 @@ function IngestView({
                 onClick={handleAcceptSelected}
                 type="button"
               >
-                加入资料库
+                重新入库
               </button>
               <button
                 disabled={isMutating}
@@ -2885,6 +3230,7 @@ function IngestView({
                 手动处理
               </button>
             </div>
+            </details>
           </>
         )}
       </section>
@@ -2933,7 +3279,7 @@ function SettingsView({ accountLabel, onSignOut }: { accountLabel: string; onSig
 
   return (
     <div className="settings-grid">
-      <section className="panel settings-panel">
+      <section className="workspace-section panel settings-panel">
         <div className="panel-header">
           <span>账户与数据</span>
           {statusText && <strong>{statusText}</strong>}
@@ -2949,7 +3295,7 @@ function SettingsView({ accountLabel, onSignOut }: { accountLabel: string; onSig
         </div>
       </section>
 
-      <section className="panel settings-panel">
+      <section className="workspace-section panel settings-panel">
         <div className="panel-header">
           <span>资料使用说明</span>
           <strong>仅基于资料库</strong>
