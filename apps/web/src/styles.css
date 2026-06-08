@@ -10654,3 +10654,75 @@ body {
 .terminal-shell .research-stage .field .tone-warning {
   color: #f2cf80;
 }
+
+/* Layout safety pass: no clipped ingest controls, no overflowing landing title. */
+.landing-case-copy h2 {
+  max-width: 22ch;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+  white-space: normal;
+}
+
+.terminal-shell .research-stage .ingest-grid {
+  grid-template-columns: minmax(420px, 0.42fr) minmax(0, 1fr);
+}
+
+.terminal-shell .research-stage .ingest-list-column {
+  min-width: 0;
+}
+
+.terminal-shell .research-stage .new-ingest-form {
+  width: 100%;
+  min-width: 0;
+}
+
+.terminal-shell .research-stage .segmented-control {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.terminal-shell .research-stage .segmented-control button {
+  min-width: 0;
+  padding-inline: 10px;
+  white-space: nowrap;
+}
+
+.terminal-shell .research-stage .source-metadata-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 0.72fr);
+  width: 100%;
+  min-width: 0;
+}
+
+.terminal-shell .research-stage .source-metadata-grid > *,
+.terminal-shell .research-stage .new-ingest-form > .terminal-input,
+.terminal-shell .research-stage .new-ingest-form > .terminal-textarea,
+.terminal-shell .research-stage .submit-ingest {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.terminal-shell .research-stage .terminal-input,
+.terminal-shell .research-stage .terminal-select,
+.terminal-shell .research-stage .terminal-textarea {
+  min-width: 0;
+}
+
+@media (max-width: 1320px) {
+  .terminal-shell .research-stage .ingest-grid {
+    grid-template-columns: minmax(360px, 0.46fr) minmax(0, 1fr);
+  }
+
+  .terminal-shell .research-stage .source-metadata-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1180px) {
+  .terminal-shell .research-stage .ingest-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
