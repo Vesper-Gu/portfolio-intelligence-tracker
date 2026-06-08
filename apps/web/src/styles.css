@@ -10069,3 +10069,506 @@ body {
     min-height: 160px;
   }
 }
+
+/* Baoyu design pass: one editorial shell, one research workspace rhythm. */
+.landing-hero-copy h1 {
+  max-width: 13.5ch;
+  text-wrap: balance;
+}
+
+@media (min-width: 1240px) {
+  .landing-hero-copy h1 {
+    max-width: 15ch;
+    white-space: nowrap;
+  }
+}
+
+.terminal-shell .content-area.research-stage {
+  display: grid;
+  align-content: start;
+  gap: 22px;
+  box-sizing: border-box;
+  width: auto;
+  max-width: none;
+  min-height: auto;
+  margin: 18px 24px 42px 0;
+  border-radius: 18px;
+  padding: clamp(22px, 2.2vw, 34px);
+}
+
+.terminal-shell .content-area.research-stage > h1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 42px;
+  margin: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(247, 243, 234, 0.9);
+  font-size: 16px;
+  font-weight: 850;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  padding: 0 0 14px;
+  text-transform: none;
+}
+
+.terminal-shell .content-area.research-stage > h1::after {
+  color: rgba(243, 241, 235, 0.44);
+  content: attr(data-view);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.terminal-shell .research-stage .home-page,
+.terminal-shell .research-stage .distribution-page,
+.terminal-shell .research-stage .ingest-grid,
+.terminal-shell .research-stage .rag-grid,
+.terminal-shell .research-stage .settings-grid,
+.terminal-shell .research-stage .library-browser,
+.terminal-shell .research-stage .library-filter-panel,
+.terminal-shell .research-stage .library-empty-panel,
+.terminal-shell .research-stage .distribution-empty-panel {
+  width: 100%;
+  max-width: none;
+}
+
+.terminal-shell .research-stage .research-home {
+  gap: 20px;
+}
+
+.terminal-shell .research-stage .research-home-header {
+  grid-template-columns: minmax(420px, 1fr) minmax(420px, 0.9fr);
+  gap: clamp(22px, 3vw, 48px);
+  align-items: center;
+  padding-bottom: 18px;
+}
+
+.terminal-shell .research-stage .research-home-title {
+  gap: 9px;
+}
+
+.terminal-shell .research-stage .research-home-title h2 {
+  max-width: none;
+  font-size: clamp(28px, 2.45vw, 38px);
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+  text-wrap: pretty;
+  white-space: nowrap;
+}
+
+.terminal-shell .research-stage .research-home-title p {
+  max-width: 44ch;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.terminal-shell .research-stage .research-home-title .home-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.terminal-shell .research-stage .research-home-title .home-hero-actions button,
+.terminal-shell .research-stage .panel-link-button,
+.terminal-shell .research-stage .save-button,
+.terminal-shell .research-stage .submit-ingest {
+  min-height: 40px;
+  border-radius: 10px;
+  padding-inline: 18px;
+}
+
+.terminal-shell .research-stage .research-home-metrics {
+  align-self: stretch;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.terminal-shell .research-stage .research-home-metrics div {
+  align-content: center;
+  padding-block: 12px;
+}
+
+.terminal-shell .research-stage .research-home-metrics strong {
+  font-size: clamp(20px, 1.65vw, 28px);
+}
+
+.terminal-shell .research-stage .research-dashboard {
+  border-radius: 16px;
+}
+
+.terminal-shell .research-stage .research-dashboard-grid {
+  grid-template-columns: minmax(220px, 0.66fr) minmax(460px, 1.14fr) minmax(300px, 0.76fr);
+  min-height: clamp(430px, 45vw, 560px);
+}
+
+.terminal-shell .research-stage .research-dashboard-top {
+  min-height: 56px;
+}
+
+.terminal-shell .research-stage .research-pane {
+  padding: clamp(16px, 1.65vw, 22px);
+}
+
+.terminal-shell .research-stage .research-decision strong {
+  font-size: clamp(21px, 1.9vw, 30px);
+}
+
+.terminal-shell .research-stage .distribution-intro {
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) minmax(420px, 0.9fr);
+  gap: clamp(22px, 3vw, 46px);
+  align-items: end;
+  margin: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0 0 20px;
+}
+
+.terminal-shell .research-stage .distribution-intro > div:first-child {
+  border: 0;
+  padding: 0;
+}
+
+.terminal-shell .research-stage .distribution-intro h2 {
+  max-width: none;
+  margin: 7px 0 8px;
+  font-size: clamp(28px, 2.35vw, 38px);
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+  white-space: nowrap;
+}
+
+.terminal-shell .research-stage .distribution-intro p {
+  max-width: 56ch;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.terminal-shell .research-stage .distribution-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-self: stretch;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.terminal-shell .research-stage .distribution-summary .metric-card {
+  display: grid;
+  align-content: center;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 12px 14px;
+}
+
+.terminal-shell .research-stage .distribution-summary .metric-card:last-child {
+  border-right: 0;
+}
+
+.terminal-shell .research-stage .distribution-summary .metric-card strong {
+  font-size: clamp(20px, 1.6vw, 28px);
+}
+
+.terminal-shell .research-stage .distribution-layout {
+  grid-template-columns: minmax(520px, 1.12fr) minmax(300px, 0.7fr);
+  gap: clamp(20px, 2.6vw, 34px);
+}
+
+.terminal-shell .research-stage .distribution-empty-panel,
+.terminal-shell .research-stage .library-empty-panel {
+  min-height: 0;
+  padding: 0;
+}
+
+.terminal-shell .research-stage .distribution-onboarding {
+  grid-template-columns: minmax(260px, 0.34fr) minmax(0, 1fr);
+  gap: clamp(22px, 3vw, 44px);
+  padding: 20px 0 0;
+}
+
+.terminal-shell .research-stage .distribution-onboarding h3 {
+  max-width: none;
+  margin: 0;
+  font-size: clamp(26px, 2.25vw, 36px);
+  line-height: 1.14;
+  white-space: nowrap;
+}
+
+.terminal-shell .research-stage .distribution-onboarding p {
+  max-width: 62ch;
+  margin: 10px 0 0;
+}
+
+.terminal-shell .research-stage .distribution-onboarding ol {
+  display: grid;
+  gap: 0;
+  margin: 18px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.terminal-shell .research-stage .distribution-onboarding li {
+  min-height: 44px;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0;
+  padding: 12px 0;
+}
+
+.terminal-shell .research-stage .distribution-onboarding li:last-child {
+  border-bottom: 0;
+}
+
+.terminal-shell .research-stage .distribution-onboarding-visual {
+  min-height: 220px;
+  border-radius: 14px;
+}
+
+.terminal-shell .research-stage .library-empty-panel .empty-state,
+.terminal-shell .research-stage .rag-empty-state,
+.terminal-shell .research-stage .empty-state {
+  border-radius: 10px;
+  color: rgba(243, 241, 235, 0.66);
+}
+
+.terminal-shell .research-stage .library-browser {
+  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+  gap: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.terminal-shell .research-stage .ingest-grid {
+  grid-template-columns: minmax(320px, 0.38fr) minmax(0, 1fr);
+  gap: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  min-height: 0;
+}
+
+.terminal-shell .research-stage .rag-grid {
+  grid-template-columns: minmax(220px, 0.28fr) minmax(320px, 1fr) minmax(230px, 0.3fr);
+  gap: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  min-height: 0;
+}
+
+.terminal-shell .research-stage .settings-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.terminal-shell .research-stage .library-filter-panel,
+.terminal-shell .research-stage .ingest-import-panel,
+.terminal-shell .research-stage .ingest-results-panel,
+.terminal-shell .research-stage .review-panel,
+.terminal-shell .research-stage .rag-query-panel,
+.terminal-shell .research-stage .rag-chat-panel,
+.terminal-shell .research-stage .rag-citations-panel,
+.terminal-shell .research-stage .settings-panel,
+.terminal-shell .research-stage .ticker-records-panel {
+  padding-top: 0;
+}
+
+.terminal-shell .research-stage .panel-header {
+  min-height: 42px;
+  margin: 0;
+  padding-bottom: 13px;
+}
+
+.terminal-shell .research-stage .library-filter-bar,
+.terminal-shell .research-stage .ticker-record-filter-bar,
+.terminal-shell .research-stage .source-metadata-grid {
+  border-radius: 0;
+  background: transparent;
+}
+
+.terminal-shell .research-stage .library-browser > *,
+.terminal-shell .research-stage .ingest-grid > *,
+.terminal-shell .research-stage .rag-grid > *,
+.terminal-shell .research-stage .settings-grid > * {
+  min-width: 0;
+}
+
+.terminal-shell .research-stage .library-browser > * + *,
+.terminal-shell .research-stage .ingest-grid > * + *,
+.terminal-shell .research-stage .rag-grid > * + *,
+.terminal-shell .research-stage .settings-grid > * + * {
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  padding-left: clamp(18px, 2vw, 26px);
+}
+
+.terminal-shell .research-stage .library-browser > *:first-child,
+.terminal-shell .research-stage .ingest-grid > *:first-child,
+.terminal-shell .research-stage .rag-grid > *:first-child,
+.terminal-shell .research-stage .settings-grid > *:first-child {
+  padding-right: clamp(18px, 2vw, 26px);
+}
+
+.terminal-shell .research-stage .ingest-list-column {
+  gap: 22px;
+}
+
+.terminal-shell .research-stage .rag-empty-state,
+.terminal-shell .research-stage .library-empty-panel .empty-state {
+  border: 1px dashed rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.025);
+  padding: 16px;
+}
+
+.terminal-shell .research-stage .rag-empty-state strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 1180px) {
+  .terminal-shell .content-area.research-stage {
+    width: auto;
+    margin-right: 18px;
+  }
+
+  .terminal-shell .research-stage .research-home-header,
+  .terminal-shell .research-stage .distribution-intro,
+  .terminal-shell .research-stage .distribution-layout,
+  .terminal-shell .research-stage .ingest-grid,
+  .terminal-shell .research-stage .rag-grid,
+  .terminal-shell .research-stage .settings-grid,
+  .terminal-shell .research-stage .library-browser {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .terminal-shell .research-stage .research-home-title h2,
+  .terminal-shell .research-stage .distribution-intro h2,
+  .terminal-shell .research-stage .distribution-onboarding h3 {
+    white-space: normal;
+  }
+
+  .terminal-shell .research-stage .library-browser > * + *,
+  .terminal-shell .research-stage .ingest-grid > * + *,
+  .terminal-shell .research-stage .rag-grid > * + *,
+  .terminal-shell .research-stage .settings-grid > * + * {
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-left: 0;
+    padding-top: 20px;
+  }
+
+  .terminal-shell .research-stage .library-browser > *:first-child,
+  .terminal-shell .research-stage .ingest-grid > *:first-child,
+  .terminal-shell .research-stage .rag-grid > *:first-child,
+  .terminal-shell .research-stage .settings-grid > *:first-child {
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .landing-hero-copy h1 {
+    max-width: 9.5ch;
+    white-space: normal;
+  }
+
+  .terminal-shell .content-area.research-stage {
+    width: calc(100vw - 20px);
+    margin: 10px;
+    border-radius: 16px;
+    padding: 18px 14px;
+  }
+
+  .terminal-shell .content-area.research-stage > h1 {
+    font-size: 14px;
+  }
+
+  .terminal-shell .content-area.research-stage > h1::after {
+    display: none;
+  }
+
+  .terminal-shell .research-stage .research-home-title h2,
+  .terminal-shell .research-stage .distribution-intro h2,
+  .terminal-shell .research-stage .distribution-onboarding h3 {
+    max-width: 100%;
+    font-size: clamp(24px, 7.2vw, 30px);
+    line-height: 1.18;
+    white-space: normal;
+  }
+
+  .terminal-shell .research-stage .research-home-metrics,
+  .terminal-shell .research-stage .distribution-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .terminal-shell .research-stage .research-home-metrics div,
+  .terminal-shell .research-stage .research-home-metrics div + div,
+  .terminal-shell .research-stage .distribution-summary .metric-card {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 12px 0;
+  }
+
+  .terminal-shell .research-stage .research-home-metrics div:last-child,
+  .terminal-shell .research-stage .distribution-summary .metric-card:last-child {
+    border-bottom: 0;
+  }
+
+  .terminal-shell .research-stage .distribution-onboarding {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Baoyu design pass: landing case uses a product proof layout, not poster typography. */
+.landing-case-section {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  width: min(1320px, calc(100% - 48px));
+  padding: 64px 0 82px;
+}
+
+.landing-case-copy {
+  position: static;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.42fr);
+  gap: clamp(20px, 4vw, 56px);
+  align-items: end;
+  padding-top: 0;
+}
+
+.landing-case-copy h2 {
+  max-width: none;
+  font-size: clamp(32px, 3.2vw, 48px);
+  line-height: 1.08;
+  text-wrap: pretty;
+  white-space: nowrap;
+}
+
+.landing-case-copy p {
+  max-width: 40ch;
+  font-size: 15px;
+  line-height: 1.58;
+}
+
+.landing-case-dashboard {
+  width: 100%;
+}
+
+.landing-final-cta h2 {
+  max-width: none;
+  text-wrap: pretty;
+}
+
+@media (max-width: 960px) {
+  .landing-case-copy {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .landing-case-copy h2 {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 760px) {
+  .landing-case-section {
+    width: min(100%, calc(100% - 28px));
+    padding: 44px 0 56px;
+  }
+
+  .landing-case-copy h2 {
+    font-size: clamp(28px, 8vw, 34px);
+  }
+}

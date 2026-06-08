@@ -1105,8 +1105,8 @@ function WorkspaceApp({ accountLabel, onSignOut }: { accountLabel: string; onSig
           ))}
         </aside>
 
-        <section className="content-area research-stage">
-          <h1>{title}</h1>
+        <section className={`content-area research-stage research-stage-${view}`} data-view={view}>
+          <h1 data-view={view}>{title}</h1>
           {view === "dashboard" && (
             <DashboardView
               dataStatus={dataStatus}
