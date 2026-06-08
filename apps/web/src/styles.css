@@ -10572,3 +10572,85 @@ body {
     font-size: clamp(28px, 8vw, 34px);
   }
 }
+
+/* High-contrast pass: prevent pale tiles and muted text inside the dark workbench. */
+.terminal-shell .research-stage .distribution-selected-meta,
+.terminal-shell .research-stage .field-grid,
+.terminal-shell .research-stage .ticker-records-summary,
+.terminal-shell .research-stage .ingest-result-metrics {
+  border-top-color: rgba(255, 255, 255, 0.14);
+  border-bottom-color: rgba(255, 255, 255, 0.14);
+}
+
+.terminal-shell .research-stage .distribution-selected-meta span,
+.terminal-shell .research-stage .field-grid .field,
+.terminal-shell .research-stage .ticker-records-summary .field,
+.terminal-shell .research-stage .ingest-result-metrics div,
+.terminal-shell .research-stage .metric-card {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.075);
+  color: rgba(244, 241, 232, 0.78);
+}
+
+.terminal-shell .research-stage .distribution-selected-meta span,
+.terminal-shell .research-stage .field-grid .field,
+.terminal-shell .research-stage .ticker-records-summary .field,
+.terminal-shell .research-stage .ingest-result-metrics div {
+  min-height: 58px;
+  padding: 12px 14px;
+}
+
+.terminal-shell .research-stage .distribution-selected-meta span:not(:last-child),
+.terminal-shell .research-stage .ticker-records-summary .field:not(:last-child),
+.terminal-shell .research-stage .field-grid .field:not(:last-child),
+.terminal-shell .research-stage .ingest-result-metrics div:not(:last-child) {
+  border-right-color: rgba(255, 255, 255, 0.14);
+}
+
+.terminal-shell .research-stage .distribution-selected-meta span,
+.terminal-shell .research-stage .field span,
+.terminal-shell .research-stage .metric-card span,
+.terminal-shell .research-stage .ingest-result-metrics span,
+.terminal-shell .research-stage .ticker-records-summary .field span {
+  color: rgba(244, 241, 232, 0.7);
+}
+
+.terminal-shell .research-stage .distribution-selected-meta strong,
+.terminal-shell .research-stage .field strong,
+.terminal-shell .research-stage .metric-card strong,
+.terminal-shell .research-stage .ingest-result-metrics strong,
+.terminal-shell .research-stage .ticker-records-summary .field strong {
+  color: #fffaf0;
+}
+
+.terminal-shell .research-stage .tone-positive {
+  color: #8fd6a8;
+}
+
+.terminal-shell .research-stage .tone-negative {
+  color: #ff9b8e;
+}
+
+.terminal-shell .research-stage .tone-warning {
+  color: #f0c56a;
+}
+
+.terminal-shell .research-stage .tone-neutral,
+.terminal-shell .research-stage .tone-empty {
+  color: #ece6d8;
+}
+
+.terminal-shell .research-stage .distribution-selected-meta .tone-positive,
+.terminal-shell .research-stage .field .tone-positive {
+  color: #a7e2ba;
+}
+
+.terminal-shell .research-stage .distribution-selected-meta .tone-negative,
+.terminal-shell .research-stage .field .tone-negative {
+  color: #ffb2a7;
+}
+
+.terminal-shell .research-stage .distribution-selected-meta .tone-warning,
+.terminal-shell .research-stage .field .tone-warning {
+  color: #f2cf80;
+}
