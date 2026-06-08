@@ -9750,3 +9750,322 @@ body {
     border-bottom: 0;
   }
 }
+
+/* Workbench home refinement: compact editorial header above the product workspace. */
+.terminal-shell .research-stage .research-home {
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(22px, 3vw, 34px);
+}
+
+.terminal-shell .research-stage .research-home-header {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(420px, 0.78fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: end;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: clamp(20px, 2.5vw, 30px);
+}
+
+.terminal-shell .research-stage .research-home-title {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.terminal-shell .research-stage .research-home-title > span,
+.terminal-shell .research-stage .research-home-metrics span {
+  color: #b9553f;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.terminal-shell .research-stage .research-home-title h2 {
+  max-width: 18ch;
+  margin: 0;
+  color: #f7f3ea;
+  font-size: clamp(30px, 3vw, 42px);
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.terminal-shell .research-stage .research-home-title p {
+  max-width: 34ch;
+  margin: 0;
+  color: rgba(243, 241, 235, 0.62);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.terminal-shell .research-stage .research-home-title .home-hero-actions {
+  margin-top: 4px;
+}
+
+.terminal-shell .research-stage .research-home-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.terminal-shell .research-stage .research-home-metrics div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 14px 16px 14px 0;
+}
+
+.terminal-shell .research-stage .research-home-metrics div + div {
+  padding-left: 16px;
+}
+
+.terminal-shell .research-stage .research-home-metrics div:last-child {
+  border-right: 0;
+}
+
+.terminal-shell .research-stage .research-home-metrics strong {
+  overflow: hidden;
+  color: #f7f3ea;
+  font-size: clamp(22px, 2.2vw, 32px);
+  font-weight: 900;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-shell .research-stage .research-home-metrics em {
+  color: rgba(243, 241, 235, 0.52);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.terminal-shell .research-stage .research-dashboard {
+  width: 100%;
+}
+
+.terminal-shell .research-stage .research-dashboard-grid {
+  grid-template-columns: minmax(220px, 0.68fr) minmax(420px, 1.08fr) minmax(280px, 0.72fr);
+  min-height: 500px;
+}
+
+.terminal-shell .research-stage .research-dashboard-top {
+  min-height: 62px;
+}
+
+.terminal-shell .research-stage .research-pane {
+  padding: clamp(18px, 2vw, 24px);
+}
+
+.terminal-shell .research-stage .research-row {
+  gap: 8px;
+  padding: 14px 0;
+}
+
+.terminal-shell .research-stage .research-row p {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.terminal-shell .research-stage .research-ticker-table button {
+  min-height: 78px;
+}
+
+.terminal-shell .research-stage .research-ticker-table button span strong {
+  font-size: 20px;
+}
+
+.terminal-shell .research-stage .research-decision {
+  gap: 12px;
+}
+
+.terminal-shell .research-stage .research-decision strong {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: clamp(22px, 2vw, 32px);
+  letter-spacing: -0.035em;
+  line-height: 1.16;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.terminal-shell .research-stage .distribution-onboarding h3 {
+  max-width: none;
+  white-space: nowrap;
+}
+
+.terminal-shell .research-stage .research-question strong {
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.terminal-shell .content-area.research-stage > h1 {
+  font-size: 13px;
+  letter-spacing: 0.055em;
+  text-transform: none;
+}
+
+@media (max-width: 1180px) {
+  .terminal-shell .research-stage .research-home-header,
+  .terminal-shell .research-stage .research-dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .terminal-shell .research-stage .research-pane {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+}
+
+@media (max-width: 760px) {
+  .terminal-shell .research-stage .research-home-header {
+    gap: 20px;
+  }
+
+  .terminal-shell .research-stage .research-home-title h2 {
+    max-width: 100%;
+    font-size: clamp(28px, 8vw, 34px);
+  }
+
+  .terminal-shell .research-stage .distribution-onboarding h3 {
+    white-space: normal;
+  }
+
+  .terminal-shell .research-stage .research-home-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .terminal-shell .research-stage .research-home-metrics div,
+  .terminal-shell .research-stage .research-home-metrics div + div {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 12px 0;
+  }
+
+  .terminal-shell .research-stage .research-home-metrics div:last-child {
+    border-bottom: 0;
+  }
+
+  .terminal-shell .research-stage .research-dashboard {
+    border-radius: 14px;
+  }
+}
+
+/* Unified workbench page rhythm: every app page uses the same wide stage and compact empty state. */
+.terminal-shell .content-area.research-stage {
+  width: min(100%, calc(100vw - 236px));
+  min-height: min(560px, calc(100dvh - 156px));
+  justify-self: stretch;
+}
+
+.terminal-shell .research-stage .home-page,
+.terminal-shell .research-stage .distribution-page,
+.terminal-shell .research-stage .ingest-grid,
+.terminal-shell .research-stage .rag-grid,
+.terminal-shell .research-stage .settings-grid,
+.terminal-shell .research-stage .library-browser,
+.terminal-shell .research-stage .library-filter-panel,
+.terminal-shell .research-stage .library-empty-panel {
+  width: 100%;
+  max-width: none;
+}
+
+.terminal-shell .research-stage .library-empty-panel,
+.terminal-shell .research-stage .distribution-empty-panel {
+  display: grid;
+  align-content: start;
+  min-height: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 22px 0 0;
+}
+
+.terminal-shell .research-stage .library-empty-panel .panel-header,
+.terminal-shell .research-stage .distribution-empty-panel .panel-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  margin: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 18px;
+}
+
+.terminal-shell .research-stage .library-empty-panel .empty-state {
+  max-width: none;
+  margin: 22px 0 18px;
+  border: 1px dashed rgba(255, 255, 255, 0.13);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 18px 20px;
+}
+
+.terminal-shell .research-stage .library-empty-panel .panel-link-button,
+.terminal-shell .research-stage .distribution-empty-panel .panel-link-button {
+  width: min(220px, 100%);
+  margin: 0;
+}
+
+.terminal-shell .research-stage .distribution-onboarding {
+  grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr);
+  align-items: center;
+  min-height: 0;
+  padding-top: 22px;
+}
+
+.terminal-shell .research-stage .distribution-onboarding-visual {
+  min-height: 210px;
+}
+
+.terminal-shell .research-stage .distribution-onboarding ol {
+  margin: 16px 0;
+}
+
+.terminal-shell .research-stage .distribution-onboarding li {
+  min-height: 40px;
+}
+
+.terminal-shell .research-stage .library-filter-panel,
+.terminal-shell .research-stage .ingest-import-panel,
+.terminal-shell .research-stage .ingest-results-panel,
+.terminal-shell .research-stage .review-panel,
+.terminal-shell .research-stage .rag-query-panel,
+.terminal-shell .research-stage .rag-chat-panel,
+.terminal-shell .research-stage .rag-citations-panel,
+.terminal-shell .research-stage .settings-panel {
+  padding-top: 22px;
+}
+
+.terminal-shell .research-stage .library-browser {
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+}
+
+@media (max-width: 1180px) {
+  .terminal-shell .content-area.research-stage {
+    width: min(100%, calc(100vw - 236px));
+  }
+
+  .terminal-shell .research-stage .library-browser {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .terminal-shell .content-area.research-stage {
+    width: calc(100vw - 20px);
+    min-height: 0;
+  }
+
+  .terminal-shell .research-stage .library-empty-panel .panel-header,
+  .terminal-shell .research-stage .distribution-empty-panel .panel-header,
+  .terminal-shell .research-stage .distribution-onboarding {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .terminal-shell .research-stage .distribution-onboarding-visual {
+    min-height: 160px;
+  }
+}

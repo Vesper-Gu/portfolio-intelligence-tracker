@@ -1463,16 +1463,36 @@ function DashboardView({
   const sourceRows = recentEvents.slice(0, 4);
   const pendingRows = pendingIngestItems.slice(0, Math.max(0, 4 - sourceRows.length));
   const statusLabel = dataStatus === "api" ? `${frequency.totalHoldings} 条资料 · ${activePositions.length} 条标的主线` : dataStatus === "loading" ? "正在读取资料库" : "资料库连接失败";
+  const headerMetricStatus = dataStatus === "api" ? "已同步" : dataStatus === "loading" ? "加载中" : "连接失败";
 
   return (
     <div className="home-page research-home">
-      <section className="research-home-copy">
-        <span>{publicDemoMode ? "Demo Workspace" : "Research Workspace"}</span>
-        <h2>示例资料整理后，会看到什么。</h2>
-        <p>标的、观点、来源和变化会被放到同一张工作台里。</p>
-        <div className="home-hero-actions">
-          <button className="primary-action" onClick={onOpenIngest} type="button">导入资料</button>
-          <button className="secondary-action" onClick={onOpenDistribution} type="button">查看分布</button>
+      <section className="research-home-header">
+        <div className="research-home-title">
+          <span>{publicDemoMode ? "Demo Workspace" : "Research Workspace"}</span>
+          <h2>资料整理后的持仓视图</h2>
+          <p>标的、观点、来源和变化集中呈现。</p>
+          <div className="home-hero-actions">
+            <button className="primary-action" onClick={onOpenIngest} type="button">导入资料</button>
+            <button className="secondary-action" onClick={onOpenDistribution} type="button">查看分布</button>
+          </div>
+        </div>
+        <div className="research-home-metrics" aria-label="当前资料状态">
+          <div>
+            <span>资料数</span>
+            <strong>{frequency.totalHoldings}</strong>
+            <em>{headerMetricStatus}</em>
+          </div>
+          <div>
+            <span>标的主线</span>
+            <strong>{activePositions.length}</strong>
+            <em>已聚合</em>
+          </div>
+          <div>
+            <span>最高频</span>
+            <strong>{topPosition?.ticker ?? "暂无"}</strong>
+            <em>{topPosition ? `${topPosition.holdingsCount} 条资料` : "等待资料"}</em>
+          </div>
         </div>
       </section>
 
