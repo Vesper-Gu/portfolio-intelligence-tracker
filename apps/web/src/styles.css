@@ -10726,3 +10726,31 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Landing case intro alignment: keep the demo explanation centered as one message. */
+.landing-case-copy {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  align-content: center;
+  min-height: clamp(240px, 30vw, 360px);
+  text-align: center;
+}
+
+.landing-case-copy h2,
+.landing-case-copy p {
+  margin-inline: auto;
+}
+
+.landing-case-copy h2 {
+  max-width: 18ch;
+}
+
+.landing-case-copy p {
+  max-width: 38ch;
+}
+
+@media (max-width: 760px) {
+  .landing-case-copy {
+    min-height: 220px;
+  }
+}
